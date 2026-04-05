@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/libsql';
-import * as schema from '../db/schema';
+import * as schema from '../../db/schema';
 import { eq, and, gte } from 'drizzle-orm';
 
 export class RelationshipRAGEngine {

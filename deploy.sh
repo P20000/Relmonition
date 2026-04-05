@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e # Exit on any error
 
+export AWS_REGION="ap-south-1"
+export AWS_DEFAULT_REGION="ap-south-1"
 # Configuration
 PROJECT="relmonition"
 REGION="ap-south-1"
@@ -18,7 +20,7 @@ cd ..
 # 2. Container Registry (ECR)
 echo "🐳 Preparing Container Registry..."
 aws ecr describe-repositories --repository-names ${PROJECT}-server >/dev/null 2>&1 || \
-aws ecr create-repository --repository-name ${PROJECT}-server
+aws ecr create-repository --repository-name ${PROJECT}-server >/dev/null
 
 # 3. Build & Push
 echo "🔨 Building Docker Image..."
