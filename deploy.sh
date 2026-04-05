@@ -38,7 +38,7 @@ kubectl create namespace couple-001 --dry-run=client -o yaml | kubectl apply -f 
 
 # Deploy via Helm
 helm upgrade --install couple-001 charts/relmonition-tenant \
-    --set coupleId=001 \
+    --set coupleId="001" \
     --set image.repository=${ECR_URL} \
     --namespace couple-001
 
