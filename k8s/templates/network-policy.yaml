@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-cross-namespace
+  namespace: couple-${COUPLE_ID}
+spec:
+  podSelector: {} # Select all pods in this namespace
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          tenant-id: "${COUPLE_ID}" # Only allow same-tenant traffic
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          tenant-id: "${COUPLE_ID}"
+  - to: # Allow egress to shared services (e.g., centralized logging/metrics)
+    - namespaceSelector:
+        matchLabels:
+          app: "shared-services"
+    ports:
+    - protocol: TCP
+      port: 443

@@ -1,0 +1,9 @@
+coupleId: "default"
+image:
+  repository: relmonition-server
+  tag: latest
+replicaCount: 2
+resources:
+  limits:
+    memory: 512Mi
+    cpu: 500m
