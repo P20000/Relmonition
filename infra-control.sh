@@ -1,27 +1,17 @@
 #!/bin/bash
 set -e
 
-# Configuration
+# This script simplifies your infrastructure management.
+# It initializes and applies your Terraform configuration in one go.
+
+echo "🚀 Starting Infrastructure Provisioning..."
+
 cd terraform
 
-case "$1" in
-    init)
-        echo "🔄 Initializing Terraform..."
-        terraform init
-        ;;
-    plan)
-        echo "📋 Planning Infrastructure changes..."
-        terraform plan
-        ;;
-    apply)
-        echo "🚀 Applying Infrastructure changes..."
-        terraform apply -auto-approve
-        ;;
-    *)
-        echo "Usage: ./infra-control.sh {init|plan|apply}"
-        echo "  init  : Initialize terraform"
-        echo "  plan  : Preview infrastructure changes"
-        echo "  apply : Apply infrastructure changes"
-        exit 1
-        ;;
-esac
+echo "🔄 Initializing Terraform..."
+terraform init -input=false
+
+echo "🚀 Applying Infrastructure changes..."
+terraform apply -auto-approve
+
+echo "✅ Infrastructure Provisioning Complete!"
