@@ -1,4 +1,5 @@
 # Relmonition Backend
+<img width="1057" height="630" alt="image" src="https://github.com/user-attachments/assets/59a5c4ac-3638-41a4-b8cb-793cd7749c39" />
 
 ## Overview
 Relmonition is a secure, HIPAA-eligible, multi-tenant backend architecture designed for relationship wellness. It utilizes a **"Namespace-per-Couple"** isolation model to ensure strict data sovereignty and compliance.
