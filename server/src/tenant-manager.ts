@@ -28,12 +28,12 @@ export class TenantDatabaseManager {
     // LOGIC STUB: In production, this hits the Turso API
     // const response = await fetch(`${process.env.TURSO_API_URL}/v1/databases`, { ... });
     
-    const dbUrl = `libsql://relmonition-${coupleId}.turso.io`;
+    const dbUrl = TURSO_CONNECTION_URL
     
     // Return isolated client
     const client = drizzle(createClient({
       url: dbUrl,
-      authToken: 'temporary-mock-token', 
+      authToken: process.env.TURSO_AUTH_TOKEN, 
     }), { schema });
 
     return {
