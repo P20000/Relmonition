@@ -11,12 +11,42 @@ provider "aws" {
   region = var.region
 }
 
-# This sets up the VPC for your EKS cluster
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "5.0.0"
+# Create a Target Group for the EKS Cluster
+resource "aws_lb_target_group" "k8s_nodes" {
+  name     = "k8s-nodes-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = module.vpc.vpc_id
+}
 
-  name = "${var.project_name}-vpc"
+# Create an Application Load Balancer
+resource "aws_lb" "relmonition_lb" {
+  name               = "relmonition-lb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.lb_sg.id]
+  subnets            = module.vpc.public_subnets
+}
+
+# Create a security group for the Load Balancer
+resource "aws_security_group" "lb_sg" {
+  name        = "relmonition-lb-sg"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
   cidr = "10.0.0.0/16"
 
   azs             = ["ap-south-1a", "ap-south-1b"]
