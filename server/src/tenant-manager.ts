@@ -26,14 +26,13 @@ export class TenantDatabaseManager {
     console.log(`[Provisioning] Creating silo for couple: ${coupleId} in ${region}`);
 
     // LOGIC STUB: In production, this hits the Turso API
-    // const response = await fetch(`${process.env.TURSO_API_URL}/v1/databases`, { ... });
-    
-    const dbUrl = TURSO_CONNECTION_URL
+    // Use environment variables for production connections
+    const dbUrl = process.env.TURSO_CONNECTION_URL || `libsql://relmonition-${coupleId}.turso.io`;
     
     // Return isolated client
     const client = drizzle(createClient({
       url: dbUrl,
-      authToken: process.env.TURSO_AUTH_TOKEN, 
+      authToken: process.env.TURSO_AUTH_TOKEN || 'temporary-mock-token', 
     }), { schema });
 
     return {
