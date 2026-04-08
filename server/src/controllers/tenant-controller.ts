@@ -15,6 +15,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
   try {
     const { tenantId } = req.params;
     const tid = typeof tenantId === 'string' ? tenantId : tenantId[0];
+    console.log(`[DEBUG] Attempting to fetch dashboard for tenant: ${tid}`);
     const db = await getDb(tid);
 
     const [lastMood, insights, interaction] = await Promise.all([
@@ -22,6 +23,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
       db.select().from(schema.aiInsights).where(eq(schema.aiInsights.coupleId, tid)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
       db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.coupleId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(7),
     ]);
+    console.log(`[DEBUG] Successfully fetched data for tenant: ${tid}`);
 
     res.json({
       lastMood: lastMood[0] || null,
@@ -29,8 +31,8 @@ export const getDashboardData = async (req: Request, res: Response) => {
       recentInteractions: interaction,
     });
   } catch (error) {
-    console.error('Dashboard error:', error);
-    res.status(500).json({ error: 'Failed to retrieve dashboard data' });
+    console.error('Dashboard error details:', error);
+    res.status(500).json({ error: 'Failed to retrieve dashboard data', details: String(error) });
   }
 };
 
