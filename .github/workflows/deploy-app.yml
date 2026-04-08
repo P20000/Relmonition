@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -18,15 +19,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
+      - name: Update Kubeconfig
+        run: |
+          aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1
+
       - name: Deploy App
         env:
           TURSO_CONNECTION_URL: ${{ secrets.TURSO_CONNECTION_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          # 1. Update kubeconfig
-          aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1
-          
-          # 2. Run your deployment
           chmod +x ./deploy.sh
           ./deploy.sh
