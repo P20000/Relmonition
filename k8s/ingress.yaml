@@ -4,7 +4,7 @@ metadata:
   name: relmonition-ingress
   namespace: couple-001
 spec:
-  ingressClass: nginx
+  ingressClassName: nginx
   rules:
   - http:
       paths:
