@@ -14,25 +14,31 @@ const getDb = async (tenantId: string) => {
 export const getDashboardData = async (req: Request, res: Response) => {
   try {
     const { tenantId } = req.params;
-    const tid = typeof tenantId === 'string' ? tenantId : tenantId[0];
-    console.log(`[DEBUG] Attempting to fetch dashboard for tenant: ${tid}`);
-    const db = await getDb(tid);
+    console.log(`[DEBUG] Attempting to fetch dashboard data for tenant: ${tenantId}`);
+    
+    const db = await getDb(tenantId);
+    console.log(`[DEBUG] DB client provisioned for: ${tenantId}`);
 
+    // Fetch dashboard aggregates
     const [lastMood, insights, interaction] = await Promise.all([
-      db.select().from(schema.moodLogs).where(eq(schema.moodLogs.coupleId, tid)).orderBy(desc(schema.moodLogs.createdAt)).limit(1),
-      db.select().from(schema.aiInsights).where(eq(schema.aiInsights.coupleId, tid)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
-      db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.coupleId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(7),
+      db.select().from(schema.moodLogs).where(eq(schema.moodLogs.coupleId, tenantId)).orderBy(desc(schema.moodLogs.createdAt)).limit(1),
+      db.select().from(schema.aiInsights).where(eq(schema.aiInsights.coupleId, tenantId)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
+      db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.coupleId, tenantId)).orderBy(desc(schema.interactionMetrics.date)).limit(7),
     ]);
-    console.log(`[DEBUG] Successfully fetched data for tenant: ${tid}`);
 
     res.json({
       lastMood: lastMood[0] || null,
       insights,
       recentInteractions: interaction,
     });
-  } catch (error) {
-    console.error('Dashboard error details:', error);
-    res.status(500).json({ error: 'Failed to retrieve dashboard data', details: String(error) });
+  } catch (error: any) {
+    console.error('[ERROR] Dashboard error:', error);
+    // Return specific error details to help us debug
+    res.status(500).json({ 
+      error: 'Failed to retrieve dashboard data', 
+      details: error.message,
+      stack: error.stack
+    });
   }
 };
 
