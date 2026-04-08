@@ -6,7 +6,7 @@ PROJECT="relmonition"
 REGION="ap-south-1"
 ECR_URL=$(aws sts get-caller-identity --query Account --output text --region $REGION).dkr.ecr.${REGION}.amazonaws.com/${PROJECT}-server
 
-echo "🚀 Starting Full Deployment (Infrastructure + App)..."
+# echo "🚀 Starting Full Deployment (Infrastructure + App)..."
 
 # # 1. Infrastructure (Terraform)
 # echo "📦 Provisioning Infrastructure..."
