@@ -8,12 +8,12 @@ ECR_URL=$(aws sts get-caller-identity --query Account --output text --region $RE
 
 echo "🚀 Starting Full Deployment (Infrastructure + App)..."
 
-# 1. Infrastructure (Terraform)
-echo "📦 Provisioning Infrastructure..."
-cd terraform
-terraform init -input=false
-terraform apply -auto-approve
-cd ..
+# # 1. Infrastructure (Terraform)
+# echo "📦 Provisioning Infrastructure..."
+# cd terraform
+# terraform init -input=false
+# terraform apply -auto-approve
+# cd ..
 
 # 2. Container Registry (ECR)
 echo "🐳 Preparing Container Registry..."
