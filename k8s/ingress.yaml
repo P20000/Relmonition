@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: relmonition-ingress
+  namespace: couple-001
+spec:
+  ingressClass: nginx
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: couple-001-server
+            port:
+              number: 3001
