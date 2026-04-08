@@ -34,6 +34,9 @@ aws eks update-kubeconfig --name ${PROJECT}-cluster --region ${REGION}
 helm upgrade --install couple-001 charts/relmonition-tenant \
     --set coupleId="001" \
     --set image.repository=${ECR_URL} \
+    --set tursoUrl="${TURSO_CONNECTION_URL}" \
+    --set tursoToken="${TURSO_AUTH_TOKEN}" \
+    --set geminiKey="${GEMINI_API_KEY}" \
     --namespace couple-001 \
     --create-namespace
 

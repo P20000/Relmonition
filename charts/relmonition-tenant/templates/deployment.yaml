@@ -23,3 +23,9 @@ spec:
         env:
         - name: COUPLE_ID
           value: {{ .Values.coupleId | quote }}
+        - name: TURSO_CONNECTION_URL
+          value: {{ .Values.tursoUrl | quote }}
+        - name: TURSO_AUTH_TOKEN
+          value: {{ .Values.tursoToken | quote }}
+        - name: GEMINI_API_KEY
+          value: {{ .Values.geminiKey | quote }}
