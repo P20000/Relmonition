@@ -13,17 +13,19 @@ const getDb = async (tenantId: string) => {
 
 export const getDashboardData = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
-    console.log(`[DEBUG] Attempting to fetch dashboard data for tenant: ${tenantId}`);
+    // Force tenantId to be a string
+    const tid = Array.isArray(req.params.tenantId) ? req.params.tenantId[0] : req.params.tenantId;
     
-    const db = await getDb(tenantId);
-    console.log(`[DEBUG] DB client provisioned for: ${tenantId}`);
+    if (!tid) {
+      return res.status(400).json({ error: 'Tenant ID is required' });
+    }
 
-    // Fetch dashboard aggregates
+    const db = await getDb(tid);
+
     const [lastMood, insights, interaction] = await Promise.all([
-      db.select().from(schema.moodLogs).where(eq(schema.moodLogs.coupleId, tenantId)).orderBy(desc(schema.moodLogs.createdAt)).limit(1),
-      db.select().from(schema.aiInsights).where(eq(schema.aiInsights.coupleId, tenantId)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
-      db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.coupleId, tenantId)).orderBy(desc(schema.interactionMetrics.date)).limit(7),
+      db.select().from(schema.moodLogs).where(eq(schema.moodLogs.coupleId, tid)).orderBy(desc(schema.moodLogs.createdAt)).limit(1),
+      db.select().from(schema.aiInsights).where(eq(schema.aiInsights.coupleId, tid)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
+      db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.coupleId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(7),
     ]);
 
     res.json({
@@ -32,12 +34,11 @@ export const getDashboardData = async (req: Request, res: Response) => {
       recentInteractions: interaction,
     });
   } catch (error: any) {
-    console.error('[ERROR] Dashboard error:', error);
-    // Return specific error details to help us debug
+    console.error('Dashboard error:', error);
     res.status(500).json({ 
       error: 'Failed to retrieve dashboard data', 
       details: error.message,
-      stack: error.stack
+      stack: error.stack 
     });
   }
 };
