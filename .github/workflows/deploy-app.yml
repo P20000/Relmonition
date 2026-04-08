@@ -22,12 +22,22 @@ jobs:
       - name: Update Kubeconfig
         run: |
           aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1
+          # Verify the config exists
+          ls -l ~/.kube/config
 
       - name: Deploy App
         env:
+          KUBECONFIG: /home/runner/.kube/config
           TURSO_CONNECTION_URL: ${{ secrets.TURSO_CONNECTION_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Force the use of the AWS CLI that is already in the PATH
+          PATH: /usr/local/bin:/usr/bin:/bin
         run: |
+          # Debug: verify helm can see the cluster
+          helm version
+          # Debug: verify helm can talk to cluster
+          kubectl get nodes
+          
           chmod +x ./deploy.sh
           ./deploy.sh
