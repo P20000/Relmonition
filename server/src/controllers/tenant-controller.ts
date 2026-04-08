@@ -14,12 +14,13 @@ const getDb = async (tenantId: string) => {
 export const getDashboardData = async (req: Request, res: Response) => {
   try {
     const { tenantId } = req.params;
-    const db = await getDb(tenantId);
+    const tid = typeof tenantId === 'string' ? tenantId : tenantId[0];
+    const db = await getDb(tid);
 
     const [lastMood, insights, interaction] = await Promise.all([
-      db.select().from(schema.moodLogs).where(eq(schema.moodLogs.coupleId, tenantId)).orderBy(desc(schema.moodLogs.createdAt)).limit(1),
-      db.select().from(schema.aiInsights).where(eq(schema.aiInsights.coupleId, tenantId)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
-      db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.coupleId, tenantId)).orderBy(desc(schema.interactionMetrics.date)).limit(7),
+      db.select().from(schema.moodLogs).where(eq(schema.moodLogs.coupleId, tid)).orderBy(desc(schema.moodLogs.createdAt)).limit(1),
+      db.select().from(schema.aiInsights).where(eq(schema.aiInsights.coupleId, tid)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
+      db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.coupleId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(7),
     ]);
 
     res.json({

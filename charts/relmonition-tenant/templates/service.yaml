@@ -4,11 +4,16 @@ metadata:
   name: {{ .Release.Name }}-server
   namespace: couple-{{ .Values.coupleId }}
 spec:
-  type: LoadBalancer        # <--- Change this from ClusterIP
+  type: LoadBalancer
   selector:
     app: relmonition
     tenant: {{ .Values.coupleId | quote }}
   ports:
-    - protocol: TCP
-      port: 80              # <--- It's standard to use 80 for public URLs
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 3001
+    - name: debug
+      protocol: TCP
+      port: 3001
       targetPort: 3001

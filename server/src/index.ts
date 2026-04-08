@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 
 import tenantRoutes from './routes/tenant-routes';
+import { getDashboardData } from './controllers/tenant-controller';
 
 dotenv.config();
 
