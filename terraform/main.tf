@@ -47,3 +47,24 @@ module "eks" {
     }
   }
 }
+
+
+# 1. Register the IAM user as an Access Entry in the EKS cluster
+resource "aws_eks_access_entry" "ci_cd_admin" {
+  cluster_name      = module.eks.cluster_name
+  principal_arn     = "arn:aws:iam::982534376726:user/DEV-user-alpha"
+  type              = "STANDARD"
+}
+
+# 2. Associate the Admin Policy with that Access Entry
+resource "aws_eks_access_policy_association" "ci_cd_admin_policy" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = aws_eks_access_entry.ci_cd_admin.principal_arn
+  
+  # This policy grants equivalent permissions to 'system:masters'
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+}

@@ -1,7 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from 'cors';
 
 import tenantRoutes from './routes/tenant-routes';
+import authRoutes from './routes/auth-routes';
 import { getDashboardData } from './controllers/tenant-controller';
 
 dotenv.config();
@@ -9,11 +11,12 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
+app.use(cors({ origin: ['https://relmonition.vercel.app', 'http://localhost:5173'] }));
 app.use(express.json());
 
 // API Routes
+app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/tenant', tenantRoutes);
-
 app.get('/api/v1/dashboard/:tenantId', getDashboardData);
 
 app.get('/health', (req, res) => {
@@ -21,5 +24,5 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+  console.log(`Server running on port ${port}`);
 });

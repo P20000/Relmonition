@@ -37,6 +37,15 @@ export const aiInsights = sqliteTable('ai_insights', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+// 5. Users for Authentication
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
+  coupleId: text('couple_id').notNull(),
+  email: text('email').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const embeddings = sqliteTable('embeddings', {
   id: text('id').primaryKey(),
   entryId: text('entry_id').references(() => journalEntries.id),
