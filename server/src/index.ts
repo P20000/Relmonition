@@ -13,6 +13,8 @@ app.use(express.json());
 // API Routes
 app.use('/api/v1/tenant', tenantRoutes);
 
+app.get('/api/v1/dashboard/:tenantId', getDashboardData);
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Relmonition API is running' });
 });

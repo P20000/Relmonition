@@ -1,22 +1,14 @@
 #!/bin/bash
-set -e
+# Remove "set -e" so the script doesn't stop on the first error
 
-echo "⚠️  WARNING: This will permanently DELETE all infrastructure, ECR images, and Kubernetes resources."
-read -p "Are you absolutely sure you want to terminate the entire backend? (y/N) " confirm
+echo "🚀 Starting Full AWS Cleanup..."
 
-if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-    echo "Termination aborted."
-    exit 1
-fi
+# 1. Cleanup Kubernetes (Don't stop if it fails)
+echo "☸️ Attempting Kubernetes cleanup..."
+helm uninstall couple-001 -n couple-001 --ignore-not-found || true
+kubectl delete namespace couple-001 --ignore-not-found || true
 
-echo "🚀 Starting Full Termination..."
-
-# 1. Cleanup Kubernetes Resources
-echo "☸️ Removing Kubernetes resources..."
-helm uninstall couple-001 -n couple-001 --ignore-not-found
-kubectl delete namespace couple-001 --ignore-not-found
-
-# 2. Cleanup Docker Images (Optional)
+# 2. Cleanup Docker images
 echo "🐳 Removing Docker Images from ECR..."
 aws ecr delete-repository --repository-name relmonition-server --force --region ap-south-1 || true
 
@@ -26,4 +18,4 @@ cd terraform
 terraform destroy -auto-approve
 cd ..
 
-echo "✅ Termination Complete. AWS account is clean."
+echo "✅ AWS account has been cleaned."

@@ -13,7 +13,7 @@ echo "🐳 Building and Pushing Docker Image..."
 
 # Ensure the repository exists before pushing
 aws ecr describe-repositories --repository-names ${PROJECT}-server --region ${REGION} >/dev/null 2>&1 || \
-aws ecr create-repository --repository-name ${PROJECT}-server --region ${REGION}
+aws ecr create-repository --repository-name ${PROJECT}-server --region ${REGION} >/dev/null
 
 aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ECR_URL}
 
