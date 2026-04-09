@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Full Deployment (Infrastructure + App + Ingress)..."
+echo "🚀 Starting Full Deployment (App + Ingress)..."
 
-# 1. Infrastructure (Terraform)
-echo "🏗️ Applying Infrastructure (Terraform)..."
-cd terraform
-terraform init
-terraform apply -auto-approve
-cd ..
+# # 1. Infrastructure (Terraform)
+# echo "🏗️ Applying Infrastructure (Terraform)..."
+# cd terraform
+# terraform init
+# terraform apply -auto-approve
+# cd ..
 
 # 2. Update Kubernetes Context
 echo "🔄 Updating Kubeconfig..."
