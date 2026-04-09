@@ -12,7 +12,7 @@ echo "🚀 Starting Full Deployment (App + Ingress)..."
 
 # 2. Update Kubernetes Context
 echo "🔄 Updating Kubeconfig..."
-aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1 --force
+aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1 
 
 # 3. ECR & Docker Build
 echo "🐳 Preparing Container Registry..."
