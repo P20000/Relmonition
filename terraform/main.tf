@@ -28,7 +28,7 @@ module "vpc" {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "20.0.0"
+  version = "~> 20.8" 
 
   cluster_name    = "relmonition-cluster"
   cluster_version = "1.30"
