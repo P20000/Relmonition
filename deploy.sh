@@ -5,7 +5,7 @@ echo "🚀 Starting Full Deployment (App + Ingress)..."
 
 # 1. Update Kubernetes Context
 echo "🔄 Updating Kubeconfig..."
-aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1 --force
+aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1
 
 # 2. ECR & Docker Build
 echo "🐳 Preparing Container Registry..."
@@ -38,4 +38,5 @@ helm upgrade --install couple-001 ./charts/relmonition-tenant -n couple-001 \
   --set turso.connectionUrl="${TURSO_CONNECTION_URL}" \
   --set turso.authToken="${TURSO_AUTH_TOKEN}"
 
+aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1
 echo "✅ Full Deployment Successful! Your app is live."
