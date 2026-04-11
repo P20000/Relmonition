@@ -11,7 +11,7 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-app.use(cors({ origin: ['https://relmonition.vercel.app', 'http://localhost:5173'] }));
+app.use(cors({ origin: ['https://relmonition.vercel.app', 'https://relmonition.dpdns.org', 'http://localhost:5173'] }));
 app.use(express.json());
 
 // API Routes
