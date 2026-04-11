@@ -12,8 +12,8 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(cors({ 
-  origin: ['https://relmonition.vercel.app', 'https://relmonition.dpdns.org', 'http://localhost:5173'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
 app.use(express.json());
