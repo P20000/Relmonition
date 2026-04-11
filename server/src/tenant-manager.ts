@@ -1,6 +1,6 @@
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
-
+import { migrate } from 'drizzle-orm/libsql/migrator';  
 // Placeholder for schema definition which will be created later
 const schema = {}; 
 
