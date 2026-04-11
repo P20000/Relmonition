@@ -3,9 +3,14 @@ import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
 import { Journal } from './components/Journal';
 import { AICoach } from './components/AICoach';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthPage } from './components/AuthPage';
 
-export default function App() {
+function AppContent() {
+  const { token } = useAuth();
   const [activeView, setActiveView] = useState<'dashboard' | 'journal' | 'coach'>('dashboard');
+
+  if (!token) return <AuthPage />;
 
   return (
     <div
@@ -22,5 +27,13 @@ export default function App() {
         {activeView === 'coach' && <AICoach />}
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

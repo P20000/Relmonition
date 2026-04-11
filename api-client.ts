@@ -17,5 +17,25 @@ export const apiClient = {
       headers: { 'Content-Type': 'application/json' },
     });
     return response.json();
+  },
+
+  async login(credentials: { email: string, password: string, coupleId: string }) {
+    const response = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Login failed');
+    return response.json();
+  },
+
+  async signup(credentials: { email: string, password: string, coupleId: string }) {
+    const response = await fetch(`${BASE_URL}/auth/signup`, {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Signup failed');
+    return response.json();
   }
 };
