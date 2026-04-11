@@ -1,6 +1,7 @@
-import { Heart, BookOpen, Brain, Menu, X } from 'lucide-react';
+import { Heart, BookOpen, Brain, Menu, X, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { ThemeToggle } from './ThemeToggle';
+import { useAuth } from '../context/AuthContext';
 
 type NavigationProps = {
   activeView: 'dashboard' | 'journal' | 'coach';
@@ -9,6 +10,7 @@ type NavigationProps = {
 
 export function Navigation({ activeView, onNavigate }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { logout } = useAuth();
 
   const navItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: Heart },
@@ -65,8 +67,15 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
                 </button>
               );
             })}
-            <div className="ml-2">
+            <div className="flex items-center gap-2 ml-2">
               <ThemeToggle />
+              <button
+                onClick={logout}
+                className="p-3 rounded-xl hover:bg-accent/50 transition-colors"
+                aria-label="Log out"
+              >
+                <LogOut className="w-5 h-5 text-muted-foreground" />
+              </button>
             </div>
           </div>
 
@@ -114,6 +123,13 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
                 </button>
               );
             })}
+             <button
+                onClick={logout}
+                className="w-full px-4 py-3 rounded-xl transition-all text-left hover:bg-accent/50 flex items-center gap-3"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Log Out</span>
+              </button>
           </div>
         )}
       </div>
