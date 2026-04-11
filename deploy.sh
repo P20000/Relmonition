@@ -39,5 +39,7 @@ kubectl create namespace couple-001 --dry-run=client -o yaml | kubectl apply -f 
 helm upgrade --install couple-001 ./charts/relmonition-tenant -n couple-001 \
   --set image.repository=$ECR_URL \
   --set coupleId="001"
-
+  
+echo "🔄 Updating Kubeconfig..."
+aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1 
 echo "✅ Full Deployment Successful! Your app is live."
