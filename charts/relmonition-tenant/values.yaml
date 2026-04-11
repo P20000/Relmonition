@@ -7,3 +7,6 @@ resources:
   limits:
     memory: 512Mi
     cpu: 500m
+turso:
+  connectionUrl: ""
+  authToken: ""
