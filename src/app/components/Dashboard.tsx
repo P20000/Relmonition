@@ -11,8 +11,8 @@ export function Dashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Hardcoded coupleId as agreed for now
-        const response = await fetch(`http://aa2e22c10c2a94cd885b2e487a3df9a8-2027252646.ap-south-1.elb.amazonaws.com/api/v1/dashboard/001`);
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+        const response = await fetch(`${API_URL}/dashboard/001`);
         if (!response.ok) throw new Error('Failed to fetch data');
         const result = await response.json();
         setData(result);
