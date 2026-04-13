@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { Heart, Mail, Lock, User, AlertCircle, Key } from 'lucide-react';
 import { apiClient } from '../../../api-client';
+import { useAuth } from '../context/AuthContext';
 
-type AuthPageProps = {
-  onLogin: (email: string, userId: string, token: string) => void;
-};
-
-export function AuthPage({ onLogin }: AuthPageProps) {
+export function AuthPage() {
   const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [coupleId, setCoupleId] = useState(''); // Required by backend
+  const [coupleId, setCoupleId] = useState(''); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Use the auth context directly
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,12 +22,11 @@ export function AuthPage({ onLogin }: AuthPageProps) {
 
     try {
       if (isSignup) {
-        // Integrate with your backend via apiClient
         const data = await apiClient.signup({ email, password, coupleId });
-        onLogin(email, data.userId, data.token || 'demo-token');
+        login(data.token || 'demo-token', coupleId);
       } else {
         const data = await apiClient.login({ email, password, coupleId });
-        onLogin(email, data.userId || 'user-id', data.token);
+        login(data.token, coupleId);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication');
@@ -100,7 +99,6 @@ export function AuthPage({ onLogin }: AuthPageProps) {
             </div>
           )}
 
-          {/* Couple ID - Necessary for Multi-Tenant Partitioning */}
           <div>
             <label htmlFor="coupleId" className="block text-sm font-medium mb-2">Couple ID</label>
             <div className="relative">
