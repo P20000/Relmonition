@@ -15,6 +15,13 @@ Relmonition operates on a **Three-Pillar Security Model**:
 2.  **Persistent Memory:** A hierarchical RAG system (Vector + Semantic) that grows with the user.
 3.  **Immutable Auditing:** All compliance-related events are piped to S3 WORM (Write Once, Read Many) storage.
 
+### Diagram 1: Infrastructure & CI/CD Topology
+<img width="1536" height="1024" alt="1st" src="https://github.com/user-attachments/assets/c89b4975-7992-450e-8d8b-8f1171f170a5" />
+
+### Diagram 2: Tenant Data Flow & Auth Lifecycle
+<img width="1536" height="1024" alt="2nd" src="https://github.com/user-attachments/assets/72f1663f-924d-4b07-8a5b-56fd9a2c3185" />
+
+
 ### Data Flow & Memory
 
 ```mermaid
