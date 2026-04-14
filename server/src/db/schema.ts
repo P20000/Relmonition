@@ -40,10 +40,10 @@ export const tenants = sqliteTable('tenants', {
 
 // The join table between users and connection tenants
 export const tenantMembers = sqliteTable('tenant_members', {
-  userId: text('user_id').notNull().references(() => users.id),
-  tenantId: text('tenant_id').notNull().references(() => tenants.id),
-  role: text('role').notNull(), // e.g. 'owner' or 'member'
-  label: text('label'), // e.g. 'Partner 1'
+  userId: text('user_id').notNull(),
+  tenantId: text('tenant_id').notNull(),
+  role: text('role').notNull(),          // 'owner' | 'member'
+  label: text('label'),                  // e.g. 'Partner 1'
   joinedAt: integer('joined_at', { mode: 'timestamp' }).notNull(),
 });
 

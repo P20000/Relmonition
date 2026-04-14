@@ -1,6 +1,6 @@
 "use client";
 import { useState } from 'react';
-import { Heart, Mail, Lock, User, AlertCircle, Key } from 'lucide-react';
+import { Heart, Mail, Lock, AlertCircle } from 'lucide-react';
 import { apiClient } from '../../api-client';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,12 +8,9 @@ export function AuthPage() {
   const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [coupleId, setCoupleId] = useState(''); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Use the auth context directly
+
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,11 +20,13 @@ export function AuthPage() {
 
     try {
       if (isSignup) {
-        const data = await apiClient.signup({ email, password, coupleId });
-        login(data.token || 'demo-token', coupleId);
+        // Signup: create the user, then auto-login with a second call
+        await apiClient.signup({ email, password });
+        const loginData = await apiClient.login({ email, password });
+        login(loginData.token, loginData.userId);
       } else {
-        const data = await apiClient.login({ email, password, coupleId });
-        login(data.token, coupleId);
+        const data = await apiClient.login({ email, password });
+        login(data.token, data.userId);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication');
@@ -82,40 +81,6 @@ export function AuthPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignup && (
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium mb-2">Name</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Your name"
-                  required={isSignup}
-                />
-              </div>
-            </div>
-          )}
-
-          <div>
-            <label htmlFor="coupleId" className="block text-sm font-medium mb-2">Couple ID</label>
-            <div className="relative">
-              <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input
-                id="coupleId"
-                type="text"
-                value={coupleId}
-                onChange={(e) => setCoupleId(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Enter your shared ID"
-                required
-              />
-            </div>
-          </div>
-
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-2">Email</label>
             <div className="relative">
@@ -159,7 +124,7 @@ export function AuthPage() {
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => setIsSignup(!isSignup)}
+            onClick={() => { setIsSignup(!isSignup); setError(''); }}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}

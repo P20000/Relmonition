@@ -1,73 +1,86 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { Activity, Calendar, Heart, TrendingUp, MessageCircle, Zap } from 'lucide-react';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { apiClient } from '../../api-client';
+import { Activity, Heart, TrendingUp, Zap, BarChart3, Smile } from 'lucide-react';
 
-export function GottmanRatioCard({ ratio = 5.2 }: { ratio?: number }) {
-  // SVG Progress calculation based on your provided formula
-  // The value 502.4 represents the circumference of the circle (2 * PI * 80)
-  const circumference = 502.4;
-  // Cap visual progress at 7 to avoid overlapping, but keep the number accurate
-  const strokeDash = (Math.min(ratio, 7) / 7) * circumference;
+const glassCard = {
+  background: 'var(--glass-bg)',
+  backdropFilter: 'blur(20px)',
+  border: '1px solid var(--glass-border)',
+  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+};
 
+// ─── Skeleton placeholder for loading ────────────────────────────────────────
+function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className="p-6 rounded-2xl"
-      style={{
-        background: 'var(--glass-bg)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid var(--glass-border)',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-      }}
-    >
-      {/* Header Section */}
+      className={`rounded-lg animate-pulse bg-muted/50 ${className || ''}`}
+    />
+  );
+}
+
+// ─── Empty state for Gottman card ────────────────────────────────────────────
+function GottmanEmptyState() {
+  const circumference = 502.4;
+  return (
+    <div className="p-6 rounded-2xl" style={glassCard}>
       <div className="flex items-center gap-3 mb-4">
         <Activity className="w-6 h-6 text-primary" aria-hidden="true" />
         <h3 className="text-lg font-semibold">Gottman 5:1 Ratio</h3>
       </div>
-
       <p className="text-sm text-muted-foreground mb-6">
         Positive to negative interactions during conflict
       </p>
+      <div className="flex items-center justify-center py-8">
+        <div className="relative">
+          <svg className="w-48 h-48" viewBox="0 0 200 200" aria-label="No data yet">
+            <circle cx="100" cy="100" r="80" fill="none" stroke="var(--muted)" strokeWidth="16" />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center flex-col">
+            <div className="text-3xl font-bold text-muted-foreground">—</div>
+            <div className="text-sm text-muted-foreground">no data yet</div>
+          </div>
+        </div>
+      </div>
+      <p className="text-center text-sm text-muted-foreground opacity-60">
+        Start logging interactions to see your ratio
+      </p>
+    </div>
+  );
+}
 
-      {/* Visual Indicator (SVG Circle) */}
+// ─── Gottman card with real data ──────────────────────────────────────────────
+export function GottmanRatioCard({ ratio }: { ratio: number }) {
+  const circumference = 502.4;
+  const strokeDash = (Math.min(ratio, 7) / 7) * circumference;
+
+  return (
+    <div className="p-6 rounded-2xl" style={glassCard}>
+      <div className="flex items-center gap-3 mb-4">
+        <Activity className="w-6 h-6 text-primary" aria-hidden="true" />
+        <h3 className="text-lg font-semibold">Gottman 5:1 Ratio</h3>
+      </div>
+      <p className="text-sm text-muted-foreground mb-6">
+        Positive to negative interactions during conflict
+      </p>
       <div className="flex items-center justify-center py-8">
         <div className="relative">
           <svg className="w-48 h-48" viewBox="0 0 200 200" aria-label={`Gottman ratio: ${ratio} to 1`}>
-            {/* Background Track */}
+            <circle cx="100" cy="100" r="80" fill="none" stroke="var(--muted)" strokeWidth="16" />
             <circle
-              cx="100"
-              cy="100"
-              r="80"
-              fill="none"
-              stroke="var(--muted)"
-              strokeWidth="16"
-            />
-            {/* Active Progress */}
-            <circle
-              cx="100"
-              cy="100"
-              r="80"
-              fill="none"
-              stroke="var(--primary)"
-              strokeWidth="16"
+              cx="100" cy="100" r="80" fill="none"
+              stroke="var(--primary)" strokeWidth="16"
               strokeDasharray={`${strokeDash} ${circumference}`}
               strokeLinecap="round"
               transform="rotate(-90 100 100)"
               className="transition-all duration-1000 ease-out"
             />
           </svg>
-
-          {/* Center Text Labels */}
           <div className="absolute inset-0 flex items-center justify-center flex-col">
             <div className="text-4xl font-bold text-primary">{ratio}</div>
             <div className="text-sm text-muted-foreground">to 1</div>
           </div>
         </div>
       </div>
-
-      {/* Footer Stats */}
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Target:</span>
@@ -75,7 +88,7 @@ export function GottmanRatioCard({ ratio = 5.2 }: { ratio?: number }) {
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Status:</span>
-          <span className={ratio >= 5.0 ? "text-green-500 font-medium" : "text-destructive font-medium"}>
+          <span className={ratio >= 5.0 ? 'text-green-500 font-medium' : 'text-destructive font-medium'}>
             {ratio >= 5.0 ? 'Healthy' : 'Needs Attention'}
           </span>
         </div>
@@ -84,6 +97,7 @@ export function GottmanRatioCard({ ratio = 5.2 }: { ratio?: number }) {
   );
 }
 
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 export function Dashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -92,54 +106,94 @@ export function Dashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        const tenantId = localStorage.getItem('activeTenantId');
+        if (!tenantId) {
+          // No tenant selected — show empty state immediately
+          setData({ lastMood: null, insights: [], recentInteractions: [] });
+          return;
+        }
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-        const response = await fetch(`${API_URL}/dashboard/001`);
+        const response = await fetch(`${API_URL}/dashboard/${tenantId}`);
         if (!response.ok) throw new Error('Failed to fetch data');
-        const result = await response.json();
-        setData(result);
+        setData(await response.json());
       } catch (err: any) {
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
     fetchDashboardData();
   }, []);
 
-  if (loading) return <div>Loading dashboard...</div>;
-  if (error) return <div>Error loading dashboard: {error}</div>;
-  if (!data) return <div>No data found.</div>;
+  // ── Loading state ──────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <header className="mb-8">
+            <Skeleton className="h-8 w-40 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </header>
+          <div className="mb-8 p-8 rounded-3xl" style={glassCard}>
+            <Skeleton className="h-6 w-48 mb-4" />
+            <Skeleton className="h-4 w-32 mb-6" />
+            <Skeleton className="h-4 w-full rounded-full" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Skeleton className="h-72 rounded-2xl" />
+            <Skeleton className="h-72 rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const { lastMood, insights, recentInteractions } = data;
+  if (error) {
+    return (
+      <div className="min-h-screen p-4 md:p-8 flex items-center justify-center">
+        <div className="text-center p-8 rounded-2xl" style={glassCard}>
+          <p className="text-destructive font-medium mb-2">Unable to load dashboard</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Sort interactions descending
-  const sortedInteractions = [...recentInteractions].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  
-  // Calculate aggregate Gottman ratio
-  const totalPositive = sortedInteractions.reduce((sum: number, item: any) => sum + (item.positiveCount || 0), 0);
-  const totalNegative = sortedInteractions.reduce((sum: number, item: any) => sum + (item.negativeCount || 0), 0);
-  const gottmanRatio = totalNegative === 0 
-    ? (totalPositive > 0 ? totalPositive : 5.0) 
-    : Number((totalPositive / totalNegative).toFixed(1));
+  const { lastMood, recentInteractions } = data || {};
 
-  // Better Health Score Calculation: 70% interactions percentage, 30% mood
+  // ── Detect empty state — no real data at all ───────────────────────────────
+  const hasInteractions = Array.isArray(recentInteractions) && recentInteractions.length > 0;
+  const hasMood = lastMood != null;
+  const isEmpty = !hasInteractions && !hasMood;
+
+  // ── Compute metrics only when we have real data ────────────────────────────
+  const sortedInteractions = hasInteractions
+    ? [...recentInteractions].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    : [];
+
+  const totalPositive = sortedInteractions.reduce((s: number, i: any) => s + (i.positiveCount || 0), 0);
+  const totalNegative = sortedInteractions.reduce((s: number, i: any) => s + (i.negativeCount || 0), 0);
+  const gottmanRatio = hasInteractions
+    ? (totalNegative === 0 ? totalPositive : Number((totalPositive / totalNegative).toFixed(1)))
+    : null;
+
   const calculateScore = (interactions: any[], moodVal: number) => {
-    const p = interactions.reduce((sum: number, item: any) => sum + (item.positiveCount || 0), 0);
-    const n = interactions.reduce((sum: number, item: any) => sum + (item.negativeCount || 0), 0);
+    const p = interactions.reduce((s: number, i: any) => s + (i.positiveCount || 0), 0);
+    const n = interactions.reduce((s: number, i: any) => s + (i.negativeCount || 0), 0);
     const t = p + n;
     const interactionScore = t > 0 ? (p / t) * 100 : 50;
     return Math.round((interactionScore * 0.7) + (moodVal * 10 * 0.3));
   };
 
-  const healthScore = calculateScore(sortedInteractions, lastMood?.moodValue || 5);
-  
-  // Divide interactions to simulate 'last week' trend
+  const healthScore = hasInteractions
+    ? calculateScore(sortedInteractions, lastMood?.moodValue || 5)
+    : null;
+
   const midPoint = Math.max(1, Math.floor(sortedInteractions.length / 2));
   const olderHalf = sortedInteractions.slice(midPoint);
-  const prevHealthScore = calculateScore(olderHalf, 7); // Using an average previous mood of 7
-  const trend = healthScore - prevHealthScore;
-  const isPositiveTrend = trend >= 0;
+  const prevHealthScore = hasInteractions ? calculateScore(olderHalf, 7) : null;
+  const trend = healthScore != null && prevHealthScore != null ? healthScore - prevHealthScore : null;
+  const isPositiveTrend = trend != null && trend >= 0;
 
   return (
     <div className="min-h-screen p-4 md:p-8">
@@ -150,16 +204,19 @@ export function Dashboard() {
           <p className="text-muted-foreground">Your relationship wellness dashboard</p>
         </header>
 
-        {/* Connection Meter - Hero Widget */}
-        <div
-          className="relative mb-8 p-8 rounded-3xl overflow-hidden"
-          style={{
-            background: 'var(--glass-bg)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid var(--glass-border)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-          }}
-        >
+        {/* ── No tenant selected ── */}
+        {isEmpty && !localStorage.getItem('activeTenantId') && (
+          <div className="mb-8 p-8 rounded-3xl text-center" style={glassCard}>
+            <Heart className="w-12 h-12 mx-auto mb-4 text-primary opacity-40" />
+            <h2 className="mb-2">No relationship selected</h2>
+            <p className="text-muted-foreground text-sm">
+              Go to <strong>Settings → Relationships</strong> to create or join a relationship space.
+            </p>
+          </div>
+        )}
+
+        {/* Connection Health ── real or empty */}
+        <div className="relative mb-8 p-8 rounded-3xl overflow-hidden" style={{ ...glassCard, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -170,27 +227,41 @@ export function Dashboard() {
                 <p className="text-muted-foreground">Overall relationship wellness score</p>
               </div>
               <div className="text-right">
-                <div className="text-5xl font-bold text-primary" aria-label={`Health score: ${healthScore} out of 100`}>
-                  {healthScore}
-                </div>
-                <div className="text-sm text-muted-foreground">out of 100</div>
+                {healthScore != null ? (
+                  <>
+                    <div className="text-5xl font-bold text-primary">{healthScore}</div>
+                    <div className="text-sm text-muted-foreground">out of 100</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-5xl font-bold text-muted-foreground/30">—</div>
+                    <div className="text-sm text-muted-foreground">no data yet</div>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Progress bar */}
             <div className="relative h-4 bg-muted rounded-full overflow-hidden mb-4">
-              <div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-1000"
-                style={{ width: `${healthScore}%` }}
-                role="progressbar"
-                aria-valuenow={healthScore}
-                aria-valuemin={0}
-                aria-valuemax={100}
-              />
+              {healthScore != null ? (
+                <div
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-1000"
+                  style={{ width: `${healthScore}%` }}
+                  role="progressbar"
+                  aria-valuenow={healthScore}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                />
+              ) : (
+                /* Placeholder dashed bar */
+                <div className="absolute inset-0 flex items-center px-2">
+                  <div className="w-full border-t-2 border-dashed border-muted-foreground/20" />
+                </div>
+              )}
             </div>
 
-            {/* Trend Indicator */}
-            {trend !== 0 && (
+            {/* Trend or placeholder hint */}
+            {trend != null && trend !== 0 ? (
               <div className="flex items-center gap-1.5 mt-2">
                 <TrendingUp className={`w-4 h-4 ${isPositiveTrend ? 'text-green-500' : 'text-destructive rotate-180'}`} />
                 <span className={`text-sm font-medium ${isPositiveTrend ? 'text-green-500' : 'text-destructive'}`}>
@@ -198,37 +269,49 @@ export function Dashboard() {
                 </span>
                 <span className="text-sm text-muted-foreground">from last week</span>
               </div>
-            )}
+            ) : isEmpty ? (
+              <p className="text-sm text-muted-foreground opacity-50">
+                Log your mood daily to track your wellness score
+              </p>
+            ) : null}
           </div>
         </div>
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Gottman Ratio Card replacing AI Insights */}
-          <GottmanRatioCard ratio={gottmanRatio} />
+          {/* Gottman card */}
+          {gottmanRatio != null ? (
+            <GottmanRatioCard ratio={gottmanRatio} />
+          ) : (
+            <GottmanEmptyState />
+          )}
 
-          {/* Interactions */}
-          <div
-            className="p-6 rounded-2xl"
-            style={{
-              background: 'var(--glass-bg)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid var(--glass-border)',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-            }}
-          >
+          {/* Recent Interactions */}
+          <div className="p-6 rounded-2xl" style={glassCard}>
             <div className="flex items-center gap-3 mb-4">
               <Zap className="w-6 h-6 text-primary" aria-hidden="true" />
               <h3>Recent Interactions</h3>
             </div>
-            <div className="space-y-2">
-              {recentInteractions.map((interaction: any) => (
-                <div key={interaction.id} className="flex justify-between p-2 border-b border-border">
-                  <span className="text-sm">{new Date(interaction.date).toLocaleDateString()}</span>
-                  <span className="text-sm font-medium">Positive: {interaction.positiveCount}</span>
-                </div>
-              ))}
-            </div>
+            {hasInteractions ? (
+              <div className="space-y-2">
+                {sortedInteractions.map((interaction: any) => (
+                  <div key={interaction.id} className="flex justify-between p-2 border-b border-border">
+                    <span className="text-sm">{new Date(interaction.date).toLocaleDateString()}</span>
+                    <span className="text-sm font-medium">
+                      <span className="text-green-500">+{interaction.positiveCount}</span>
+                      {' / '}
+                      <span className="text-destructive">-{interaction.negativeCount}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                <BarChart3 className="w-10 h-10 mb-3 opacity-20" />
+                <p className="text-sm opacity-50">No interactions logged yet</p>
+                <p className="text-xs opacity-40 mt-1">Use the Journal to start tracking</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
