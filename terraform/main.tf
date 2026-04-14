@@ -29,12 +29,19 @@ module "eks" {
     provider_key_arn = aws_kms_key.eks_secrets.arn
   }
 
-  eks_managed_node_groups = {
-    general = {
-      min_size     = 1
-      max_size     = 2
-      desired_size = 1
-      instance_types = ["t3.medium"]
+  fargate_profiles = {
+    kube_system = {
+      name = "kube-system"
+      selectors = [
+        { namespace = "kube-system" }
+      ]
+    }
+    shared_services = {
+      name = "shared-services"
+      selectors = [
+        { namespace = "shared-services" },
+        { namespace = "default" }
+      ]
     }
   }
 }
