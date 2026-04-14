@@ -4,6 +4,7 @@ import cors from 'cors';
 
 import tenantRoutes from './routes/tenant-routes';
 import authRoutes from './routes/auth-routes';
+import ragRoutes from './routes/rag-routes';
 import { getDashboardData } from './controllers/tenant-controller';
 
 dotenv.config();
@@ -21,6 +22,7 @@ app.use(express.json());
 // API Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/tenant', tenantRoutes);
+app.use('/api/v1/rag', ragRoutes);
 app.get('/api/v1/dashboard/:tenantId', getDashboardData);
 
 app.get('/health', (req, res) => {

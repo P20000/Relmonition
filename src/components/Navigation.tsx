@@ -1,12 +1,11 @@
 "use client";
-import { Heart, BookOpen, Brain, Menu, X, LogOut } from 'lucide-react';
+import { Heart, BookOpen, Brain, Menu, X, LogOut, Settings as SettingsIcon } from 'lucide-react';
 import { useState } from 'react';
-import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from '../context/AuthContext';
 
 type NavigationProps = {
-  activeView: 'dashboard' | 'journal' | 'coach';
-  onNavigate: (view: 'dashboard' | 'journal' | 'coach') => void;
+  activeView: 'dashboard' | 'journal' | 'coach' | 'settings';
+  onNavigate: (view: 'dashboard' | 'journal' | 'coach' | 'settings') => void;
 };
 
 export function Navigation({ activeView, onNavigate }: NavigationProps) {
@@ -17,6 +16,8 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
     { id: 'dashboard' as const, label: 'Dashboard', icon: Heart },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
     { id: 'coach' as const, label: 'AI Coach', icon: Brain },
+    { id: 'settings' as const, label: 'Settings', icon: SettingsIcon },
+
   ];
 
   return (
@@ -54,11 +55,10 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
-                  className={`px-6 py-3 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                    activeView === item.id
-                      ? 'bg-primary text-primary-foreground shadow-lg'
-                      : 'hover:bg-accent/50'
-                  }`}
+                  className={`px-6 py-3 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${activeView === item.id
+                    ? 'bg-primary text-primary-foreground shadow-lg'
+                    : 'hover:bg-accent/50'
+                    }`}
                   aria-current={activeView === item.id ? 'page' : undefined}
                 >
                   <div className="flex items-center gap-2">
@@ -69,20 +69,19 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
               );
             })}
             <div className="flex items-center gap-2 ml-2">
-              <ThemeToggle />
-              <button
+              {/* premitive logout button */}
+              {/* <button
                 onClick={logout}
                 className="p-3 rounded-xl hover:bg-accent/50 transition-colors"
                 aria-label="Log out"
               >
                 <LogOut className="w-5 h-5 text-muted-foreground" />
-              </button>
+              </button> */}
             </div>
           </div>
 
           {/* Mobile Menu Button */}
           <div className="flex md:hidden items-center gap-2">
-            <ThemeToggle />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-lg hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
@@ -110,11 +109,10 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
                     onNavigate(item.id);
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full px-4 py-3 rounded-xl transition-all text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                    activeView === item.id
-                      ? 'bg-primary text-primary-foreground shadow-lg'
-                      : 'hover:bg-accent/50'
-                  }`}
+                  className={`w-full px-4 py-3 rounded-xl transition-all text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${activeView === item.id
+                    ? 'bg-primary text-primary-foreground shadow-lg'
+                    : 'hover:bg-accent/50'
+                    }`}
                   aria-current={activeView === item.id ? 'page' : undefined}
                 >
                   <div className="flex items-center gap-3">
@@ -124,13 +122,15 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
                 </button>
               );
             })}
-             <button
-                onClick={logout}
-                className="w-full px-4 py-3 rounded-xl transition-all text-left hover:bg-accent/50 flex items-center gap-3"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>Log Out</span>
-              </button>
+
+            {/* premitive logout button */}
+            {/* <button
+              onClick={logout}
+              className="w-full px-4 py-3 rounded-xl transition-all text-left hover:bg-accent/50 flex items-center gap-3"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Log Out</span>
+            </button> */}
           </div>
         )}
       </div>

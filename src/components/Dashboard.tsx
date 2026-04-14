@@ -4,6 +4,86 @@ import { Activity, Calendar, Heart, TrendingUp, MessageCircle, Zap } from 'lucid
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { apiClient } from '../../api-client';
 
+export function GottmanRatioCard({ ratio = 5.2 }: { ratio?: number }) {
+  // SVG Progress calculation based on your provided formula
+  // The value 502.4 represents the circumference of the circle (2 * PI * 80)
+  const circumference = 502.4;
+  // Cap visual progress at 7 to avoid overlapping, but keep the number accurate
+  const strokeDash = (Math.min(ratio, 7) / 7) * circumference;
+
+  return (
+    <div
+      className="p-6 rounded-2xl"
+      style={{
+        background: 'var(--glass-bg)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid var(--glass-border)',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+      }}
+    >
+      {/* Header Section */}
+      <div className="flex items-center gap-3 mb-4">
+        <Activity className="w-6 h-6 text-primary" aria-hidden="true" />
+        <h3 className="text-lg font-semibold">Gottman 5:1 Ratio</h3>
+      </div>
+
+      <p className="text-sm text-muted-foreground mb-6">
+        Positive to negative interactions during conflict
+      </p>
+
+      {/* Visual Indicator (SVG Circle) */}
+      <div className="flex items-center justify-center py-8">
+        <div className="relative">
+          <svg className="w-48 h-48" viewBox="0 0 200 200" aria-label={`Gottman ratio: ${ratio} to 1`}>
+            {/* Background Track */}
+            <circle
+              cx="100"
+              cy="100"
+              r="80"
+              fill="none"
+              stroke="var(--muted)"
+              strokeWidth="16"
+            />
+            {/* Active Progress */}
+            <circle
+              cx="100"
+              cy="100"
+              r="80"
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="16"
+              strokeDasharray={`${strokeDash} ${circumference}`}
+              strokeLinecap="round"
+              transform="rotate(-90 100 100)"
+              className="transition-all duration-1000 ease-out"
+            />
+          </svg>
+
+          {/* Center Text Labels */}
+          <div className="absolute inset-0 flex items-center justify-center flex-col">
+            <div className="text-4xl font-bold text-primary">{ratio}</div>
+            <div className="text-sm text-muted-foreground">to 1</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Stats */}
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Target:</span>
+          <span className="text-foreground font-medium">5.0+</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Status:</span>
+          <span className={ratio >= 5.0 ? "text-green-500 font-medium" : "text-destructive font-medium"}>
+            {ratio >= 5.0 ? 'Healthy' : 'Needs Attention'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -32,8 +112,34 @@ export function Dashboard() {
   if (!data) return <div>No data found.</div>;
 
   const { lastMood, insights, recentInteractions } = data;
-  const healthScore = lastMood ? (lastMood.moodValue * 10) : 0;
-  const gottmanRatio = 5.0; // Placeholder until backend provides real ratio
+
+  // Sort interactions descending
+  const sortedInteractions = [...recentInteractions].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  
+  // Calculate aggregate Gottman ratio
+  const totalPositive = sortedInteractions.reduce((sum: number, item: any) => sum + (item.positiveCount || 0), 0);
+  const totalNegative = sortedInteractions.reduce((sum: number, item: any) => sum + (item.negativeCount || 0), 0);
+  const gottmanRatio = totalNegative === 0 
+    ? (totalPositive > 0 ? totalPositive : 5.0) 
+    : Number((totalPositive / totalNegative).toFixed(1));
+
+  // Better Health Score Calculation: 70% interactions percentage, 30% mood
+  const calculateScore = (interactions: any[], moodVal: number) => {
+    const p = interactions.reduce((sum: number, item: any) => sum + (item.positiveCount || 0), 0);
+    const n = interactions.reduce((sum: number, item: any) => sum + (item.negativeCount || 0), 0);
+    const t = p + n;
+    const interactionScore = t > 0 ? (p / t) * 100 : 50;
+    return Math.round((interactionScore * 0.7) + (moodVal * 10 * 0.3));
+  };
+
+  const healthScore = calculateScore(sortedInteractions, lastMood?.moodValue || 5);
+  
+  // Divide interactions to simulate 'last week' trend
+  const midPoint = Math.max(1, Math.floor(sortedInteractions.length / 2));
+  const olderHalf = sortedInteractions.slice(midPoint);
+  const prevHealthScore = calculateScore(olderHalf, 7); // Using an average previous mood of 7
+  const trend = healthScore - prevHealthScore;
+  const isPositiveTrend = trend >= 0;
 
   return (
     <div className="min-h-screen p-4 md:p-8">
@@ -72,7 +178,7 @@ export function Dashboard() {
             </div>
 
             {/* Progress bar */}
-            <div className="relative h-4 bg-muted rounded-full overflow-hidden">
+            <div className="relative h-4 bg-muted rounded-full overflow-hidden mb-4">
               <div
                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-1000"
                 style={{ width: `${healthScore}%` }}
@@ -82,31 +188,24 @@ export function Dashboard() {
                 aria-valuemax={100}
               />
             </div>
+
+            {/* Trend Indicator */}
+            {trend !== 0 && (
+              <div className="flex items-center gap-1.5 mt-2">
+                <TrendingUp className={`w-4 h-4 ${isPositiveTrend ? 'text-green-500' : 'text-destructive rotate-180'}`} />
+                <span className={`text-sm font-medium ${isPositiveTrend ? 'text-green-500' : 'text-destructive'}`}>
+                  {isPositiveTrend ? '+' : ''}{trend} points
+                </span>
+                <span className="text-sm text-muted-foreground">from last week</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Insights (Instead of Communication Frequency for now) */}
-          <div
-            className="p-6 rounded-2xl"
-            style={{
-              background: 'var(--glass-bg)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid var(--glass-border)',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-            }}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <MessageCircle className="w-6 h-6 text-primary" aria-hidden="true" />
-              <h3>AI Insights</h3>
-            </div>
-            <div className="space-y-4">
-                {insights.map((insight: any) => (
-                    <p key={insight.id} className="text-sm text-muted-foreground">{insight.content}</p>
-                ))}
-            </div>
-          </div>
+          {/* Gottman Ratio Card replacing AI Insights */}
+          <GottmanRatioCard ratio={gottmanRatio} />
 
           {/* Interactions */}
           <div
@@ -123,12 +222,12 @@ export function Dashboard() {
               <h3>Recent Interactions</h3>
             </div>
             <div className="space-y-2">
-                {recentInteractions.map((interaction: any) => (
-                    <div key={interaction.id} className="flex justify-between p-2 border-b border-border">
-                        <span className="text-sm">{new Date(interaction.date).toLocaleDateString()}</span>
-                        <span className="text-sm font-medium">Positive: {interaction.positiveCount}</span>
-                    </div>
-                ))}
+              {recentInteractions.map((interaction: any) => (
+                <div key={interaction.id} className="flex justify-between p-2 border-b border-border">
+                  <span className="text-sm">{new Date(interaction.date).toLocaleDateString()}</span>
+                  <span className="text-sm font-medium">Positive: {interaction.positiveCount}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

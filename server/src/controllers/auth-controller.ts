@@ -3,45 +3,78 @@ import { TenantDatabaseManager } from '../tenant-manager';
 import * as schema from '../db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 const tenantManager = new TenantDatabaseManager();
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-relmonition-key';
+
+// Helper to generate an opaque token for DB storage
+const generateToken = () => crypto.randomBytes(32).toString('hex');
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { email, password, coupleId } = req.body;
-    const { client } = await tenantManager.getDatabaseClient(coupleId);
+    const { email, password } = req.body;
+    
+    // We get the global client since signups operate on the Identity Layer
+    const { client } = tenantManager.getGlobalClient();
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = await client.insert(schema.users).values({
-      id: crypto.randomUUID(),
-      coupleId,
+    const userId = crypto.randomUUID();
+
+    // Insert new user
+    await client.insert(schema.users).values({
+      id: userId,
       email,
       passwordHash: hashedPassword,
       createdAt: new Date(),
-    }).returning();
+    });
 
-    res.status(201).json({ message: 'User created', userId: newUser[0].id });
+    // Create default preferences row
+    await client.insert(schema.userPreferences).values({
+      userId,
+      darkMode: true,
+      notifications: true,
+      dataSharing: false,
+      updatedAt: new Date(),
+    });
+
+    res.status(201).json({ message: 'User created successfully', userId });
   } catch (error: any) {
+    if (error.message?.includes('UNIQUE constraint failed: users.email')) {
+      return res.status(409).json({ error: 'Email already exists' });
+    }
     res.status(500).json({ error: 'Signup failed', details: error.message });
   }
 };
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password, coupleId } = req.body;
-    const { client } = await tenantManager.getDatabaseClient(coupleId);
+    const { email, password } = req.body;
+    const { client } = tenantManager.getGlobalClient();
 
-    const user = await client.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
+    // Verify User
+    const userResult = await client.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
     
-    if (user.length === 0 || !(await bcrypt.compare(password, user[0].passwordHash))) {
+    if (userResult.length === 0 || !(await bcrypt.compare(password, userResult[0].passwordHash))) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user[0].id, coupleId }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, coupleId });
+    const user = userResult[0];
+    const sessionToken = generateToken();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+
+    // Persist session
+    await client.insert(schema.sessions).values({
+      id: crypto.randomUUID(),
+      token: sessionToken,
+      userId: user.id,
+      expiresAt,
+      createdAt: new Date(),
+    });
+
+    res.json({ token: sessionToken, userId: user.id });
   } catch (error: any) {
     res.status(500).json({ error: 'Login failed', details: error.message });
   }
 };
+
