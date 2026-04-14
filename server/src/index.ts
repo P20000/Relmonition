@@ -12,7 +12,7 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(cors({ 
-  origin: 'https://relmonition.dpdns.org',
+  origin: ['https://relmonition.dpdns.org', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));

@@ -11,7 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-relmonition-key';
 export const signup = async (req: Request, res: Response) => {
   try {
     const { email, password, coupleId } = req.body;
-    const { client } = await tenantManager.provisionCoupleDatabase(coupleId, 'ap-south-1');
+    const { client } = await tenantManager.getDatabaseClient(coupleId);
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await client.insert(schema.users).values({
@@ -31,7 +31,7 @@ export const signup = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password, coupleId } = req.body;
-    const { client } = await tenantManager.provisionCoupleDatabase(coupleId, 'ap-south-1');
+    const { client } = await tenantManager.getDatabaseClient(coupleId);
 
     const user = await client.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
     

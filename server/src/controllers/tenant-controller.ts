@@ -7,7 +7,7 @@ const tenantManager = new TenantDatabaseManager();
 
 // Helper to get DB instance
 const getDb = async (tenantId: string) => {
-  const { client } = await tenantManager.provisionCoupleDatabase(tenantId, 'ap-south-1');
+  const { client } = await tenantManager.getDatabaseClient(tenantId);
   return client;
 };
 
