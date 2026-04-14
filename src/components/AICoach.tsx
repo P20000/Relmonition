@@ -1,3 +1,4 @@
+"use client";
 import { useState } from 'react';
 import { Brain, Zap, Search, MessageSquare, Clock, Tag } from 'lucide-react';
 

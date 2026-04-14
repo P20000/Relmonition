@@ -1,3 +1,4 @@
+"use client";
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface AuthContextType {
@@ -10,14 +11,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [coupleId, setCoupleId] = useState<string | null>(localStorage.getItem('coupleId'));
+  const [token, setToken] = useState<string | null>(null);
+  const [coupleId, setCoupleId] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const login = (token: string, coupleId: string) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('coupleId', coupleId);
-    setToken(token);
-    setCoupleId(coupleId);
+  useEffect(() => {
+    setToken(localStorage.getItem('token'));
+    setCoupleId(localStorage.getItem('coupleId'));
+    setIsLoaded(true);
+  }, []);
+
+  const login = (newToken: string, newCoupleId: string) => {
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('coupleId', newCoupleId);
+    setToken(newToken);
+    setCoupleId(newCoupleId);
   };
 
   const logout = () => {

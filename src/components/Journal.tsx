@@ -1,3 +1,4 @@
+"use client";
 import { useState } from 'react';
 import { Sparkles, Lock, Eye, Send } from 'lucide-react';
 

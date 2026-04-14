@@ -1,7 +1,7 @@
 /**
  * Frontend API Utility to communicate with the Backend
  */
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export const apiClient = {
   async getTenantData(coupleId: string) {

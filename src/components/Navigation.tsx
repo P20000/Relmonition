@@ -1,3 +1,4 @@
+"use client";
 import { Heart, BookOpen, Brain, Menu, X, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { ThemeToggle } from './ThemeToggle';

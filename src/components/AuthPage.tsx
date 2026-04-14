@@ -1,6 +1,7 @@
+"use client";
 import { useState } from 'react';
 import { Heart, Mail, Lock, User, AlertCircle, Key } from 'lucide-react';
-import { apiClient } from '../../../api-client';
+import { apiClient } from '../../api-client';
 import { useAuth } from '../context/AuthContext';
 
 export function AuthPage() {

@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from 'react';
 import { Activity, Calendar, Heart, TrendingUp, MessageCircle, Zap } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -11,7 +12,7 @@ export function Dashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
         const response = await fetch(`${API_URL}/dashboard/001`);
         if (!response.ok) throw new Error('Failed to fetch data');
         const result = await response.json();
