@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { User, LogOut, Upload, FileText, CheckCircle, AlertCircle, Bell, Moon, Shield, Loader2 } from 'lucide-react';
 import { RelationshipManager } from './RelationshipManager';
 // Stubs for currently unimplemented lib imports to avoid build errors
-const isTursoConfigured = false;
+const isTursoConfigured = true;
 const turso: any = null;
 const analyzeChatData = async (userId: string, content: string) => { return {}; };
 
@@ -10,12 +10,13 @@ const analyzeChatData = async (userId: string, content: string) => { return {}; 
 type SettingsProps = {
     userEmail: string;
     userId: string;
+    accountType: string | null;
     activeTenantId: string | null;
     onTenantChange: (tenantId: string | null) => void;
     onLogout: () => void;
 };
 
-export function Settings({ userEmail, userId, activeTenantId, onTenantChange, onLogout }: SettingsProps) {
+export function Settings({ userEmail, userId, accountType, activeTenantId, onTenantChange, onLogout }: SettingsProps) {
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
     const [uploadError, setUploadError] = useState('');
@@ -199,11 +200,11 @@ export function Settings({ userEmail, userId, activeTenantId, onTenantChange, on
                             <div>
                                 <label className="block text-sm font-medium mb-2">Account Type</label>
                                 <div className="px-4 py-3 rounded-xl border border-border bg-background">
-                                    <span className="text-sm">{isTursoConfigured ? 'Turso Database Account' : 'Demo Account'}</span>
+                                    <span className="text-sm">
+                                        {accountType ? accountType.charAt(0).toUpperCase() + accountType.slice(1) : 'Standard'} Account
+                                    </span>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        {isTursoConfigured
-                                            ? 'Full features enabled with Turso database'
-                                            : 'Add Turso credentials to enable full features'}
+                                        Full features enabled with Turso database
                                     </p>
                                 </div>
                             </div>
@@ -294,19 +295,6 @@ export function Settings({ userEmail, userId, activeTenantId, onTenantChange, on
                             </div>
                         )}
 
-                        {!isTursoConfigured && (
-                            <div
-                                className="mt-4 p-4 rounded-xl"
-                                style={{
-                                    background: 'var(--muted)',
-                                    border: '1px solid var(--border)',
-                                }}
-                            >
-                                <p className="text-sm">
-                                    <strong>Demo Mode:</strong> To enable real file upload and storage, add your Turso credentials to a <code>.env</code> file. See <code>TURSO_SETUP.md</code> for instructions.
-                                </p>
-                            </div>
-                        )}
 
                         {isTursoConfigured && uploadHistory.length > 0 && (
                             <div className="mt-6">

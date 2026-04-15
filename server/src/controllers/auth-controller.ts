@@ -72,9 +72,59 @@ export const login = async (req: Request, res: Response) => {
       createdAt: new Date(),
     });
 
-    res.json({ token: sessionToken, userId: user.id });
+    res.json({ 
+      token: sessionToken, 
+      userId: user.id,
+      email: user.email,
+      accountType: user.billingStatus 
+    });
   } catch (error: any) {
     res.status(500).json({ error: 'Login failed', details: error.message });
   }
 };
 
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing or invalid authorization header' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { client } = tenantManager.getGlobalClient();
+
+    // Find session
+    const sessionResult = await client
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.token, token))
+      .limit(1);
+
+    if (sessionResult.length === 0 || new Date() > sessionResult[0].expiresAt) {
+      return res.status(401).json({ error: 'Session expired or invalid' });
+    }
+
+    const userId = sessionResult[0].userId;
+
+    // Find user
+    const userResult = await client
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult[0];
+
+    res.json({
+      userId: user.id,
+      email: user.email,
+      accountType: user.billingStatus,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch session info', details: error.message });
+  }
+};

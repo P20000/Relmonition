@@ -10,7 +10,7 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { token } = useAuth();
+  const { token, isLoaded } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -20,6 +20,14 @@ export default function ProtectedLayout({
     }
   }, [token, router]);
 
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+  
   if (!token) return null;
 
   const activeView = pathname.includes('dashboard') ? 'dashboard' :

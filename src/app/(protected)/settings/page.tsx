@@ -6,19 +6,11 @@ import { Settings } from "../../../components/Settings";
 import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
-  const { userId, logout } = useAuth();
+  const { userId, email, accountType, activeTenantId, setActiveTenantId, logout } = useAuth();
   const router = useRouter();
-  const [activeTenantId, setActiveTenantId] = useState<string | null>(
-    typeof window !== "undefined" ? localStorage.getItem("activeTenantId") : null
-  );
 
   const handleTenantChange = (tenantId: string | null) => {
     setActiveTenantId(tenantId);
-    if (tenantId) {
-      localStorage.setItem("activeTenantId", tenantId);
-    } else {
-      localStorage.removeItem("activeTenantId");
-    }
   };
 
   const handleLogout = () => {
@@ -26,10 +18,15 @@ export default function SettingsPage() {
     router.push("/");
   };
 
+  if (!userId) {
+    return null; // Or a loader
+  }
+
   return (
     <Settings
-      userEmail="user@relmonition.com"
-      userId={userId || "demo-user"}
+      userEmail={email || ""}
+      userId={userId}
+      accountType={accountType}
       activeTenantId={activeTenantId}
       onTenantChange={handleTenantChange}
       onLogout={handleLogout}

@@ -2,6 +2,7 @@ import { embedText } from './embeddings-service';
 import { RelationshipRAGEngine, RetrievedContext } from './retrieval-engine';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TenantDatabaseManager } from '../../tenant-manager';
+import crypto from 'crypto';
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -101,7 +102,7 @@ export async function embedAndStoreJournalEntry(
   await client.insert((await import('../../db/schema')).embeddings).values({
     id: crypto.randomUUID(),
     entryId,
-    coupleId,
+    tenantId: coupleId,
     content,
     vector: JSON.stringify(vector),
     createdAt: new Date(),

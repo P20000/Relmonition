@@ -39,7 +39,7 @@ export class RelationshipRAGEngine {
     const storedEmbeddings = await this.db
       .select()
       .from(schema.embeddings)
-      .where(eq(schema.embeddings.coupleId, coupleId));
+      .where(eq(schema.embeddings.tenantId, coupleId));
 
     if (storedEmbeddings.length === 0) {
       console.log(`[RAG] No embeddings found for couple ${coupleId}`);

@@ -23,10 +23,10 @@ export function AuthPage() {
         // Signup: create the user, then auto-login with a second call
         await apiClient.signup({ email, password });
         const loginData = await apiClient.login({ email, password });
-        login(loginData.token, loginData.userId);
+        login(loginData.token, loginData.userId, loginData.email, loginData.accountType);
       } else {
         const data = await apiClient.login({ email, password });
-        login(data.token, data.userId);
+        login(data.token, data.userId, data.email, data.accountType);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication');

@@ -55,6 +55,8 @@ export const tenantMembers = sqliteTable('tenant_members', {
 export const journalEntries = sqliteTable('journal_entries', {
   id: text('id').primaryKey(),
   tenantId: text('tenant_id').notNull(),
+  userId: text('user_id').notNull(),      // Knowing who wrote what
+  prompt: text('prompt'),                 // The question for the day
   content: text('content').notNull(),
   sentimentScore: integer('sentiment_score'), // -1 to 1 scale
   category: text('category'), // 'conflict', 'appreciation', 'repair'
