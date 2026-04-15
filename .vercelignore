@@ -1,0 +1,9 @@
+server/
+.git/
+.next/
+node_modules/
+terraform/
+k8s/
+charts/
+guidelines/
+k8s/
