@@ -7,11 +7,13 @@ interface AuthContextType {
   userId: string | null;
   coupleId: string | null;
   email: string | null;
+  name: string | null;
   accountType: string | null;
   activeTenantId: string | null;
   isLoaded: boolean;
   setActiveTenantId: (tenantId: string | null) => void;
-  login: (token: string, userId: string, email: string, accountType: string) => void;
+  login: (token: string, userId: string, email: string, name: string, accountType: string) => void;
+  setName: (name: string) => void;
   logout: () => void;
 }
 
@@ -21,6 +23,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [name, setNameState] = useState<string | null>(null);
   const [accountType, setAccountType] = useState<string | null>(null);
   const [activeTenantId, setActiveTenantIdState] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -29,12 +32,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const savedToken = localStorage.getItem('token');
     const savedUserId = localStorage.getItem('userId');
     const savedEmail = localStorage.getItem('email');
+    const savedName = localStorage.getItem('name');
     const savedAccountType = localStorage.getItem('accountType');
     const savedTenantId = localStorage.getItem('activeTenantId');
 
     setToken(savedToken);
     setUserId(savedUserId);
     setEmail(savedEmail);
+    setNameState(savedName);
     setAccountType(savedAccountType);
     setActiveTenantIdState(savedTenantId);
     setIsLoaded(true);
@@ -44,9 +49,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       apiClient.getMe(savedToken).then(data => {
         localStorage.setItem('userId', data.userId);
         localStorage.setItem('email', data.email);
+        localStorage.setItem('name', data.name);
         localStorage.setItem('accountType', data.accountType);
         setUserId(data.userId);
         setEmail(data.email);
+        setNameState(data.name);
         setAccountType(data.accountType);
       }).catch(err => {
         console.error('Failed to sync profile:', err);
@@ -58,26 +65,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const login = (newToken: string, newUserId: string, newEmail: string, newAccountType: string) => {
+  const login = (newToken: string, newUserId: string, newEmail: string, newName: string, newAccountType: string) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('userId', newUserId);
     localStorage.setItem('email', newEmail);
+    localStorage.setItem('name', newName);
     localStorage.setItem('accountType', newAccountType);
     setToken(newToken);
     setUserId(newUserId);
     setEmail(newEmail);
+    setNameState(newName);
     setAccountType(newAccountType);
+  };
+
+  const setName = (newName: string) => {
+    localStorage.setItem('name', newName);
+    setNameState(newName);
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
     localStorage.removeItem('email');
+    localStorage.removeItem('name');
     localStorage.removeItem('accountType');
     localStorage.removeItem('activeTenantId');
     setToken(null);
     setUserId(null);
     setEmail(null);
+    setNameState(null);
     setAccountType(null);
     setActiveTenantIdState(null);
   };
@@ -92,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ token, userId, email, accountType, activeTenantId, isLoaded, setActiveTenantId, coupleId: userId, login, logout }}>
+    <AuthContext.Provider value={{ token, userId, email, name, accountType, activeTenantId, isLoaded, setActiveTenantId, coupleId: userId, login, logout, setName }}>
       {children}
     </AuthContext.Provider>
   );

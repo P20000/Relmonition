@@ -6,6 +6,7 @@ import tenantRoutes from './routes/tenant-routes';
 import authRoutes from './routes/auth-routes';
 import ragRoutes from './routes/rag-routes';
 import journalRoutes from './routes/journal-routes';
+import coachRoutes from './routes/coach-routes';
 import { getDashboardData } from './controllers/tenant-controller';
 
 dotenv.config();
@@ -25,6 +26,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/tenant', tenantRoutes);
 app.use('/api/v1/rag', ragRoutes);
 app.use('/api/v1/journal', journalRoutes);
+app.use('/api/v1/coach', coachRoutes);
 app.get('/api/v1/dashboard/:tenantId', getDashboardData);
 
 app.get('/health', (req, res) => {

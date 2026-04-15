@@ -24,21 +24,21 @@ export interface RAGResponse {
 
 /**
  * Full RAG pipeline:
- *  1. Retrieve semantically relevant journal entries for this couple
+ *  1. Retrieve semantically relevant journal entries for this tenant
  *  2. Build a grounded prompt with the retrieved context
  *  3. Generate a Gemini response
  */
 export async function queryRelationshipMemory(
-  coupleId: string,
+  tenantId: string,
   query: string,
   mode: 'retrieval' | 'exploration' = 'retrieval',
 ): Promise<RAGResponse> {
   // Step 1: Get tenant DB client
-  const { client } = await tenantManager.getDatabaseClient(coupleId);
+  const { client } = await tenantManager.getDatabaseClient(tenantId);
 
   // Step 2: Semantic retrieval
   const engine = new RelationshipRAGEngine(client);
-  const context: RetrievedContext[] = await engine.retrieveContext(coupleId, query, mode);
+  const context: RetrievedContext[] = await engine.retrieveContext(tenantId, query, mode);
 
   // Step 3: Build grounded prompt
   const contextBlock = context.length > 0
@@ -69,7 +69,7 @@ USER QUERY: ${query}
 RESPONSE:`;
 
   // Step 4: Generate with Gemini
-  console.log(`[RAG] Generating response for couple ${coupleId}, ${context.length} context chunks`);
+  console.log(`[RAG] Generating response for tenant ${tenantId}, ${context.length} context chunks`);
   const model = getGenClient().getGenerativeModel({ model: 'gemini-1.5-flash' });
   const result = await model.generateContent(prompt);
   const answer = result.response.text();
@@ -90,19 +90,19 @@ RESPONSE:`;
  * Inserts the embedding into Turso so it can be retrieved in future RAG calls.
  */
 export async function embedAndStoreJournalEntry(
-  coupleId: string,
+  tenantId: string,
   entryId: string,
   content: string,
 ): Promise<void> {
-  console.log(`[RAG] Embedding journal entry ${entryId} for couple ${coupleId}`);
-  const { client } = await tenantManager.getDatabaseClient(coupleId);
+  console.log(`[RAG] Embedding journal entry ${entryId} for tenant ${tenantId}`);
+  const { client } = await tenantManager.getDatabaseClient(tenantId);
 
   const vector = await embedText(content);
 
   await client.insert((await import('../../db/schema')).embeddings).values({
     id: crypto.randomUUID(),
     entryId,
-    tenantId: coupleId,
+    tenantId,
     content,
     vector: JSON.stringify(vector),
     createdAt: new Date(),

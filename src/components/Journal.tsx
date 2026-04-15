@@ -19,14 +19,12 @@ type JournalEntry = {
 export function Journal({ userId, tenantId }: JournalProps) {
     const [yourAnswer, setYourAnswer] = useState('');
     const [hasSubmitted, setHasSubmitted] = useState(false);
-    const [showReveal, setShowReveal] = useState(false);
     const [dailyPrompt, setDailyPrompt] = useState<{ prompt: string; date: string } | null>(null);
     const [pastEntries, setPastEntries] = useState<JournalEntry[]>([]);
     const [loadingPrompt, setLoadingPrompt] = useState(true);
     const [loadingEntries, setLoadingEntries] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const partnerAnswerMock = "When you texted me that silly meme during my stressful meeting. It was exactly what I needed - you always know how to make me smile even when we're apart. It reminded me that you're thinking about me throughout the day.";
 
     useEffect(() => {
         fetchInitialData();
@@ -39,7 +37,7 @@ export function Journal({ userId, tenantId }: JournalProps) {
 
             const [promptData, entriesData] = await Promise.all([
                 apiClient.getJournalPrompt(),
-                apiClient.getJournalEntries(tenantId)
+                apiClient.getJournalEntries(tenantId, userId)
             ]);
 
             setDailyPrompt(promptData);
@@ -54,7 +52,6 @@ export function Journal({ userId, tenantId }: JournalProps) {
 
             if (alreadySubmitted) {
                 setHasSubmitted(true);
-                setShowReveal(true);
             }
 
         } catch (error) {
@@ -79,13 +76,11 @@ export function Journal({ userId, tenantId }: JournalProps) {
 
             setHasSubmitted(true);
             // Re-fetch to update history
-            const updatedEntries = await apiClient.getJournalEntries(tenantId);
+            const updatedEntries = await apiClient.getJournalEntries(tenantId, userId);
             setPastEntries(updatedEntries);
-
-            setTimeout(() => setShowReveal(true), 500);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to submit entry:', error);
-            alert('Failed to save your reflection. Please try again.');
+            alert(`Failed to save your reflection: ${error.message}`);
         } finally {
             setIsSubmitting(false);
         }
@@ -101,7 +96,7 @@ export function Journal({ userId, tenantId }: JournalProps) {
                         <h1>Daily Reflection</h1>
                     </div>
                     <p className="text-muted-foreground">
-                        Share your thoughts, discover your partner's perspective
+                        Your private space for reflection and AI-powered growth
                     </p>
                 </header>
 
@@ -140,7 +135,7 @@ export function Journal({ userId, tenantId }: JournalProps) {
                             disabled={hasSubmitted || isSubmitting}
                         />
                         <div className="mt-2 text-xs text-muted-foreground">
-                            {!hasSubmitted ? "Your partner's response will be revealed once you submit yours." : "Reflection saved successfully."}
+                            {!hasSubmitted ? "Take a moment to center yourself." : "Reflection saved successfully."}
                         </div>
                     </div>
 
@@ -152,65 +147,11 @@ export function Journal({ userId, tenantId }: JournalProps) {
                             className="w-full py-4 px-6 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                         >
                             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                            Submit & Reveal Partner's Response
+                            Save Reflection
                         </button>
                     )}
                 </div>
 
-                {/* Partner's Response - Locked/Revealed State */}
-                <div
-                    className={`p-8 rounded-3xl transition-all duration-500 ${hasSubmitted ? 'opacity-100 translate-y-0' : 'opacity-50 translate-y-4'
-                        }`}
-                    style={{
-                        background: 'var(--glass-bg)',
-                        backdropFilter: 'blur(20px)',
-                        border: '1px solid var(--glass-border)',
-                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                    }}
-                >
-                    <div className="mb-4 flex items-center justify-between">
-                        <label className="text-muted-foreground font-medium">
-                            Partner's Response
-                        </label>
-                        {!hasSubmitted && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Lock className="w-4 h-4" aria-hidden="true" />
-                                Locked
-                            </div>
-                        )}
-                        {hasSubmitted && (
-                            <div className="flex items-center gap-2 text-sm text-primary">
-                                <Eye className="w-4 h-4" aria-hidden="true" />
-                                Revealed
-                            </div>
-                        )}
-                    </div>
-
-                    <div
-                        className={`relative transition-all duration-700 ${showReveal ? 'blur-none' : 'blur-xl select-none pointer-events-none'
-                            }`}
-                    >
-                        <div className="p-6 rounded-xl bg-background/30 border border-border">
-                            <p className="leading-relaxed italic text-muted-foreground">
-                                {partnerAnswerMock}
-                                <span className="block not-italic text-xs mt-4 text-muted-foreground/60">
-                                    [Demo Response: Dynamic partner fetch coming soon]
-                                </span>
-                            </p>
-                        </div>
-
-                        {!showReveal && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-center">
-                                    <Lock className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-                                    <p className="text-sm text-muted-foreground">
-                                        {!hasSubmitted ? 'Submit your response to reveal' : 'Revealing...'}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
 
                 {/* Previous Entries Section */}
                 <div className="mt-16">
@@ -245,9 +186,6 @@ export function Journal({ userId, tenantId }: JournalProps) {
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="text-xs font-medium text-primary py-1 px-2 bg-primary/10 rounded-md">
                                             {new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                        </div>
-                                        <div className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">
-                                            {entry.userId === userId ? 'Yours' : 'Partner'}
                                         </div>
                                     </div>
                                     <p className="text-sm font-medium mb-2 line-clamp-1">{entry.prompt}</p>

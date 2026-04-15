@@ -9,17 +9,17 @@ import { queryRelationshipMemory, embedAndStoreJournalEntry } from '../services/
  */
 export const ragQuery = async (req: Request, res: Response) => {
   try {
-    const { coupleId, query, mode = 'retrieval' } = req.body;
+    const { tenantId, query, mode = 'retrieval' } = req.body;
 
-    if (!coupleId || !query) {
-      return res.status(400).json({ error: 'coupleId and query are required.' });
+    if (!tenantId || !query) {
+      return res.status(400).json({ error: 'tenantId and query are required.' });
     }
 
     if (mode !== 'retrieval' && mode !== 'exploration') {
       return res.status(400).json({ error: 'mode must be "retrieval" or "exploration".' });
     }
 
-    const result = await queryRelationshipMemory(coupleId, query, mode);
+    const result = await queryRelationshipMemory(tenantId, query, mode);
     res.json(result);
   } catch (error: any) {
     console.error('[RAG Controller] Error:', error);
@@ -29,19 +29,19 @@ export const ragQuery = async (req: Request, res: Response) => {
 
 /**
  * POST /api/v1/rag/embed
- * Body: { coupleId: string, entryId: string, content: string }
+ * Body: { tenantId: string, entryId: string, content: string }
  *
  * Manually trigger embedding for a journal entry (also called internally on-write).
  */
 export const ragEmbed = async (req: Request, res: Response) => {
   try {
-    const { coupleId, entryId, content } = req.body;
+    const { tenantId, entryId, content } = req.body;
 
-    if (!coupleId || !entryId || !content) {
-      return res.status(400).json({ error: 'coupleId, entryId, and content are required.' });
+    if (!tenantId || !entryId || !content) {
+      return res.status(400).json({ error: 'tenantId, entryId, and content are required.' });
     }
 
-    await embedAndStoreJournalEntry(coupleId, entryId, content);
+    await embedAndStoreJournalEntry(tenantId, entryId, content);
     res.status(201).json({ message: 'Embedding stored successfully.', entryId });
   } catch (error: any) {
     console.error('[RAG Controller] Embed error:', error);

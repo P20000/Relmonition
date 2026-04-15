@@ -6,6 +6,7 @@ import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
+  name: text('name'),
   passwordHash: text('password_hash').notNull(),
   billingStatus: text('billing_status').default('free'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
@@ -78,6 +79,9 @@ export const interactionMetrics = sqliteTable('interaction_metrics', {
   tenantId: text('tenant_id').notNull(),
   positiveCount: integer('positive_count').default(0),
   negativeCount: integer('negative_count').default(0),
+  bidsCount: integer('bids_count').default(0),
+  repairsCount: integer('repairs_count').default(0),
+  conflictScore: integer('conflict_score').default(0),
   date: integer('date', { mode: 'timestamp' }).notNull(), // Daily aggregate
 });
 
@@ -97,4 +101,14 @@ export const embeddings = sqliteTable('embeddings', {
   content: text('content').notNull(),         // original text for context window
   vector: text('vector').notNull(),           // JSON-serialised float[] from Gemini
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(), // for exploration mode ordering
+});
+export const chatUploads = sqliteTable('chat_uploads', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull(),
+  userId: text('user_id').notNull(),
+  fileName: text('file_name').notNull(),
+  fileContent: text('file_content').notNull(),
+  fileSize: integer('file_size').notNull(),
+  processed: integer('processed', { mode: 'boolean' }).default(false),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });

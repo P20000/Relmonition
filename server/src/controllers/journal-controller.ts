@@ -4,6 +4,7 @@ import * as schema from '../db/schema';
 import { eq, desc, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { embedAndStoreJournalEntry } from '../services/ai/rag-service';
+import { processJournalMetrics } from '../services/ai/metrics-service';
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -49,9 +50,13 @@ export const createEntry = async (req: Request, res: Response) => {
       createdAt: new Date(),
     });
 
-    // Fire-and-forget embedding into RAG system (passing prompt + content for context)
+    // Fire-and-forget background processing
     embedAndStoreJournalEntry(tenantId, entryId, prompt ? `${prompt}\n\n${content}` : content).catch(err => {
         console.error(`[Journal] Failed to embed entry ${entryId}:`, err);
+    });
+
+    processJournalMetrics(tenantId, entryId, content).catch(err => {
+        console.error(`[Journal] Failed to process metrics for ${entryId}:`, err);
     });
 
     res.status(201).json({ message: 'Entry created', entryId });
@@ -62,15 +67,31 @@ export const createEntry = async (req: Request, res: Response) => {
 
 export const getEntries = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = String(req.params.tenantId);
+    const userId = req.query.userId ? String(req.query.userId) : undefined;
     const db = await getDb(tenantId);
 
-    const entries = await db
+    let query = db
       .select()
       .from(schema.journalEntries)
       .where(eq(schema.journalEntries.tenantId, tenantId))
-      .orderBy(desc(schema.journalEntries.createdAt))
-      .limit(20);
+      .orderBy(desc(schema.journalEntries.createdAt));
+
+    if (userId) {
+      // @ts-ignore - Adding dynamic filter
+      query = db
+        .select()
+        .from(schema.journalEntries)
+        .where(
+          and(
+            eq(schema.journalEntries.tenantId, tenantId),
+            eq(schema.journalEntries.userId, userId)
+          )
+        )
+        .orderBy(desc(schema.journalEntries.createdAt));
+    }
+
+    const entries = await query.limit(20);
 
     res.json(entries);
   } catch (error: any) {

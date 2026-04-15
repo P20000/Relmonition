@@ -1,5 +1,6 @@
 "use client";
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Heart, Mail, Lock, AlertCircle } from 'lucide-react';
 import { apiClient } from '../../api-client';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +13,7 @@ export function AuthPage() {
   const [error, setError] = useState('');
 
   const { login } = useAuth();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,11 +25,12 @@ export function AuthPage() {
         // Signup: create the user, then auto-login with a second call
         await apiClient.signup({ email, password });
         const loginData = await apiClient.login({ email, password });
-        login(loginData.token, loginData.userId, loginData.email, loginData.accountType);
+        login(loginData.token, loginData.userId, loginData.email, loginData.name, loginData.accountType);
       } else {
         const data = await apiClient.login({ email, password });
-        login(data.token, data.userId, data.email, data.accountType);
+        login(data.token, data.userId, data.email, data.name, data.accountType);
       }
+      router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication');
     } finally {

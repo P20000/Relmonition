@@ -20,10 +20,14 @@ export const signup = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = crypto.randomUUID();
 
+    // Use email prefix as default name
+    const defaultName = email.split('@')[0];
+
     // Insert new user
     await client.insert(schema.users).values({
       id: userId,
       email,
+      name: defaultName,
       passwordHash: hashedPassword,
       createdAt: new Date(),
     });
@@ -76,6 +80,7 @@ export const login = async (req: Request, res: Response) => {
       token: sessionToken, 
       userId: user.id,
       email: user.email,
+      name: user.name || user.email.split('@')[0],
       accountType: user.billingStatus 
     });
   } catch (error: any) {
@@ -122,9 +127,30 @@ export const getMe = async (req: Request, res: Response) => {
     res.json({
       userId: user.id,
       email: user.email,
+      name: user.name || user.email.split('@')[0],
       accountType: user.billingStatus,
     });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch session info', details: error.message });
+  }
+};
+
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    const { userId, name } = req.body;
+    const { client } = tenantManager.getGlobalClient();
+
+    if (!userId || !name) {
+      return res.status(400).json({ error: 'User ID and name are required' });
+    }
+
+    await client
+      .update(schema.users)
+      .set({ name })
+      .where(eq(schema.users.id, userId));
+
+    res.json({ message: 'Profile updated successfully', name });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update profile', details: error.message });
   }
 };

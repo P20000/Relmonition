@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { TenantDatabaseManager } from '../tenant-manager';
 import * as schema from '../db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 
 const tenantManager = new TenantDatabaseManager();
@@ -88,26 +88,53 @@ export const joinTenant = async (req: Request, res: Response) => {
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
+import { generateDynamicGreeting } from '../services/ai/greeting-service';
+
 export const getDashboardData = async (req: Request, res: Response) => {
   try {
     const tid = String(req.params.tenantId);
+    const userId = req.query.userId ? String(req.query.userId) : null;
 
     if (!tid) {
       return res.status(400).json({ error: 'Tenant ID is required' });
     }
 
+    const { client: globalClient } = tenantManager.getGlobalClient();
     const db = await getDb(tid);
 
-    const [lastMood, insights, interaction] = await Promise.all([
+    // Fetch user name for greeting if userId is provided
+    let userName = 'there';
+    if (userId) {
+      const u = await globalClient.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+      if (u[0]) {
+        userName = u[0].name || u[0].email.split('@')[0];
+      }
+    }
+
+    const [lastMood, insights, interaction, greeting] = await Promise.all([
       db.select().from(schema.moodLogs).where(eq(schema.moodLogs.tenantId, tid)).orderBy(desc(schema.moodLogs.createdAt)).limit(1),
       db.select().from(schema.aiInsights).where(eq(schema.aiInsights.tenantId, tid)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
-      db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.tenantId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(7),
+      db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.tenantId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(14),
+      generateDynamicGreeting(userName)
     ]);
+
+    // --- Smart Sync Logic ---
+    // If no metrics/insights yet, but journals exist, trigger a backfill
+    if (insights.length === 0 && interaction.length === 0) {
+      const journalCount = await db.select({ count: sql<number>`count(*)` }).from(schema.journalEntries).where(eq(schema.journalEntries.tenantId, tid));
+      if (journalCount[0]?.count > 0) {
+        console.log(`[SmartSync] Triggering initial backfill for tenant ${tid}`);
+        import('../utils/backfill-metrics').then(m => m.backfillTenantMetrics(tid)).catch(err => {
+          console.error(`[SmartSync] Backfill trigger failed:`, err);
+        });
+      }
+    }
 
     res.json({
       lastMood: lastMood[0] || null,
       insights,
       recentInteractions: interaction,
+      greeting
     });
   } catch (error: any) {
     console.error('Dashboard error:', error);

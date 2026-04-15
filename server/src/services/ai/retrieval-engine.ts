@@ -18,7 +18,7 @@ export class RelationshipRAGEngine {
   }
 
   /**
-   * Semantic retrieval over this couple's journal embeddings.
+   * Semantic retrieval over this tenant's journal embeddings.
    *
    * Modes:
    *  - 'retrieval'   → top-5 by cosine similarity (precise Q&A grounding)
@@ -26,11 +26,11 @@ export class RelationshipRAGEngine {
    *                    (weekly summaries, trend detection)
    */
   async retrieveContext(
-    coupleId: string,
+    tenantId: string,
     query: string,
     mode: 'retrieval' | 'exploration' = 'retrieval',
   ): Promise<RetrievedContext[]> {
-    console.log(`[RAG] Embedding query for couple ${coupleId} in ${mode} mode`);
+    console.log(`[RAG] Embedding query for tenant ${tenantId} in ${mode} mode`);
 
     // 1. Embed the incoming query
     const queryVector = await embedText(query);
@@ -39,10 +39,10 @@ export class RelationshipRAGEngine {
     const storedEmbeddings = await this.db
       .select()
       .from(schema.embeddings)
-      .where(eq(schema.embeddings.tenantId, coupleId));
+      .where(eq(schema.embeddings.tenantId, tenantId));
 
     if (storedEmbeddings.length === 0) {
-      console.log(`[RAG] No embeddings found for couple ${coupleId}`);
+      console.log(`[RAG] No embeddings found for tenant ${tenantId}`);
       return [];
     }
 

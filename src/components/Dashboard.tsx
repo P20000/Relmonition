@@ -1,6 +1,17 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { Activity, Heart, TrendingUp, Zap, BarChart3, Smile } from 'lucide-react';
+import { Activity, Heart, TrendingUp, Zap, BarChart3, Smile, Sparkles, Shield, Star } from 'lucide-react';
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
+import { useAuth } from '../context/AuthContext';
 
 const glassCard = {
   background: 'var(--glass-bg)',
@@ -97,8 +108,74 @@ export function GottmanRatioCard({ ratio }: { ratio: number }) {
   );
 }
 
+// ─── Interaction Chart ──────────────────────────────────────────────────────
+function InteractionTrendChart({ data }: { data: any[] }) {
+  // Format data for Recharts
+  const chartData = [...data]
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .map(d => ({
+      date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      Positive: d.positiveCount || 0,
+      Negative: d.negativeCount || 0,
+    }));
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.2} />
+          <XAxis 
+            dataKey="date" 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+          />
+          <YAxis 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+          />
+          <Tooltip 
+            contentStyle={{ 
+              background: 'var(--background)', 
+              border: '1px solid var(--border)', 
+              borderRadius: '12px',
+              fontSize: '12px',
+              boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
+            }}
+          />
+          <Legend 
+            verticalAlign="top" 
+            align="right" 
+            height={36} 
+            iconType="circle"
+            wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+          />
+          <Line 
+            type="monotone" 
+            dataKey="Positive" 
+            stroke="var(--primary)" 
+            strokeWidth={3}
+            dot={{ r: 4, fill: 'var(--primary)', strokeWidth: 2, stroke: 'var(--background)' }}
+            activeDot={{ r: 6, strokeWidth: 0 }}
+          />
+          <Line 
+            type="monotone" 
+            dataKey="Negative" 
+            stroke="var(--destructive)" 
+            strokeWidth={3}
+            dot={{ r: 4, fill: 'var(--destructive)', strokeWidth: 2, stroke: 'var(--background)' }}
+            activeDot={{ r: 6, strokeWidth: 0 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export function Dashboard() {
+  const { userId } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +190,10 @@ export function Dashboard() {
           return;
         }
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-        const response = await fetch(`${API_URL}/dashboard/${tenantId}`);
+        const url = new URL(`${API_URL}/dashboard/${tenantId}`);
+        if (userId) url.searchParams.append('userId', userId);
+        
+        const response = await fetch(url.toString());
         if (!response.ok) throw new Error('Failed to fetch data');
         setData(await response.json());
       } catch (err: any) {
@@ -123,7 +203,7 @@ export function Dashboard() {
       }
     };
     fetchDashboardData();
-  }, []);
+  }, [userId]);
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
@@ -131,6 +211,7 @@ export function Dashboard() {
       <div className="min-h-screen p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
           <header className="mb-8">
+            <Skeleton className="h-10 w-64 mb-4" />
             <Skeleton className="h-8 w-40 mb-2" />
             <Skeleton className="h-4 w-64" />
           </header>
@@ -159,7 +240,7 @@ export function Dashboard() {
     );
   }
 
-  const { lastMood, recentInteractions } = data || {};
+  const { lastMood, recentInteractions, greeting, insights } = data || {};
 
   // ── Detect empty state — no real data at all ───────────────────────────────
   const hasInteractions = Array.isArray(recentInteractions) && recentInteractions.length > 0;
@@ -173,6 +254,8 @@ export function Dashboard() {
 
   const totalPositive = sortedInteractions.reduce((s: number, i: any) => s + (i.positiveCount || 0), 0);
   const totalNegative = sortedInteractions.reduce((s: number, i: any) => s + (i.negativeCount || 0), 0);
+  const totalBids = sortedInteractions.reduce((s: number, i: any) => s + (i.bidsCount || 0), 0);
+  const totalRepairs = sortedInteractions.reduce((s: number, i: any) => s + (i.repairsCount || 0), 0);
   const gottmanRatio = hasInteractions
     ? (totalNegative === 0 ? totalPositive : Number((totalPositive / totalNegative).toFixed(1)))
     : null;
@@ -200,9 +283,47 @@ export function Dashboard() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <header className="mb-8">
+          {greeting && (
+            <div className="flex items-center gap-2 mb-4 animate-in fade-in slide-in-from-left duration-700">
+              <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+              <h2 className="text-2xl font-semibold bg-gradient-to-r from-foreground to-foreground/50 bg-clip-text text-transparent">
+                {greeting}
+              </h2>
+            </div>
+          )}
           <h1 className="mb-2">The Pulse</h1>
           <p className="text-muted-foreground">Your relationship wellness dashboard</p>
         </header>
+
+        {/* AI Insight Card */}
+        {insights && insights.length > 0 && (
+          <div 
+            className="mb-8 p-6 rounded-3xl border border-primary/20 bg-primary/5 relative overflow-hidden group hover:border-primary/40 transition-all duration-500"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Sparkles className="w-20 h-20 text-primary" />
+            </div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="w-5 h-5 text-primary" />
+                <span className="text-xs font-bold uppercase tracking-wider text-primary/70">Relationship Pulse</span>
+              </div>
+              <p className="text-lg md:text-xl font-medium leading-relaxed">
+                "{insights[0].content}"
+              </p>
+              <div className="mt-4 flex items-center gap-4">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                  <Star className="w-3.5 h-3.5" />
+                  {totalBids} Bids Detected
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">
+                  <Heart className="w-3.5 h-3.5" />
+                  {totalRepairs} Repairs Noticed
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── No tenant selected ── */}
         {isEmpty && !localStorage.getItem('activeTenantId') && (
@@ -288,22 +409,13 @@ export function Dashboard() {
 
           {/* Recent Interactions */}
           <div className="p-6 rounded-2xl" style={glassCard}>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-6">
               <Zap className="w-6 h-6 text-primary" aria-hidden="true" />
-              <h3>Recent Interactions</h3>
+              <h3>Interaction Trends</h3>
             </div>
             {hasInteractions ? (
-              <div className="space-y-2">
-                {sortedInteractions.map((interaction: any) => (
-                  <div key={interaction.id} className="flex justify-between p-2 border-b border-border">
-                    <span className="text-sm">{new Date(interaction.date).toLocaleDateString()}</span>
-                    <span className="text-sm font-medium">
-                      <span className="text-green-500">+{interaction.positiveCount}</span>
-                      {' / '}
-                      <span className="text-destructive">-{interaction.negativeCount}</span>
-                    </span>
-                  </div>
-                ))}
+              <div className="mt-4">
+                <InteractionTrendChart data={sortedInteractions} />
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">

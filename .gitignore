@@ -38,3 +38,19 @@ Thumbs.db
 *.log
 *.tmp
 *.bak
+
+# next.js build output
+.next/
+out/
+
+# Relmonition specific
+server/scratch/
+server/dist/
+server/.env
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# vercel
+.vercel
