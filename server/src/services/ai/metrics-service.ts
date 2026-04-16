@@ -32,13 +32,14 @@ interface BehavioralAnalysis {
 export async function processJournalMetrics(
   tenantId: string,
   entryId: string,
-  content: string
+  content: string,
+  targetDate?: Date
 ): Promise<void> {
   console.log(`[Metrics] Processing behavioral metrics for entry ${entryId} in tenant ${tenantId}`);
   
   const { client: db } = await tenantManager.getDatabaseClient(tenantId);
   const genAI = getGenClient();
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   // 1. Analyze Behaviors
   const analysis = await analyzeBehavioralMetrics(model, content);
@@ -52,7 +53,7 @@ export async function processJournalMetrics(
     .where(eq(schema.journalEntries.id, entryId));
 
   // 3. Update Daily Interaction Metrics
-  await updateInteractionMetrics(db, tenantId, analysis);
+  await updateInteractionMetrics(db, tenantId, analysis, targetDate);
 
   // 4. Generate/Update AI Insight (Relationship Pulse)
   await updateRelationshipInsight(db, tenantId);
@@ -99,16 +100,16 @@ async function analyzeBehavioralMetrics(model: any, content: string): Promise<Be
   }
 }
 
-async function updateInteractionMetrics(db: any, tenantId: string, analysis: BehavioralAnalysis) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+async function updateInteractionMetrics(db: any, tenantId: string, analysis: BehavioralAnalysis, targetDate?: Date) {
+  const metricDate = targetDate ? new Date(targetDate) : new Date();
+  metricDate.setHours(0, 0, 0, 0);
 
   // Check if we have a row for today
   const existing = await db.select()
     .from(schema.interactionMetrics)
     .where(and(
       eq(schema.interactionMetrics.tenantId, tenantId),
-      eq(schema.interactionMetrics.date, today)
+      eq(schema.interactionMetrics.date, metricDate)
     ))
     .limit(1);
 
@@ -127,7 +128,7 @@ async function updateInteractionMetrics(db: any, tenantId: string, analysis: Beh
     await db.insert(schema.interactionMetrics).values({
       id: crypto.randomUUID(),
       tenantId,
-      date: today,
+      date: metricDate,
       positiveCount: analysis.score > 0 ? 1 : 0,
       negativeCount: analysis.score < 0 ? 1 : 0,
       bidsCount: analysis.bidsCount,
@@ -144,7 +145,7 @@ async function updateRelationshipInsight(db: any, tenantId: string) {
   
   if (context.length < 1) return;
 
-  const model = getGenClient().getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = getGenClient().getGenerativeModel({ model: 'gemini-2.0-flash' });
   const prompt = `
     You are a relationship expert. Based on these recent journal reflections, provide a 
     "Relationship Pulse" insight. 

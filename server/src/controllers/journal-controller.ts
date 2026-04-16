@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { TenantDatabaseManager } from '../tenant-manager';
 import * as schema from '../db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { embedAndStoreJournalEntry } from '../services/ai/rag-service';
 import { processJournalMetrics } from '../services/ai/metrics-service';
@@ -24,34 +24,88 @@ const DAILY_PROMPTS = [
 
 export const getDailyPrompt = async (req: Request, res: Response) => {
   try {
-    // Return prompt based on date
-    const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-    const prompt = DAILY_PROMPTS[dayOfYear % DAILY_PROMPTS.length];
-    res.json({ prompt, date: new Date().toISOString() });
+    const tenantId = req.query.tenantId as string;
+    const userId = req.query.userId as string;
+
+    if (!tenantId || !userId) {
+      return res.status(400).json({ error: 'tenantId and userId are required' });
+    }
+
+    const { client: globalClient } = tenantManager.getGlobalClient();
+    
+    // Fetch members to find user and partner names
+    const members = await globalClient
+      .select({
+        userId: schema.tenantMembers.userId,
+        label: schema.tenantMembers.label,
+        userName: schema.users.name
+      })
+      .from(schema.tenantMembers)
+      .leftJoin(schema.users, eq(schema.tenantMembers.userId, schema.users.id))
+      .where(eq(schema.tenantMembers.tenantId, tenantId));
+
+    const currentUser = members.find(m => m.userId === userId);
+    const partner = members.find(m => m.userId !== userId);
+
+    const userName = currentUser?.userName || currentUser?.label || 'there';
+    const partnerName = partner?.userName || partner?.label || 'your partner';
+
+    res.json({ 
+      userName, 
+      partnerName,
+      date: new Date().toISOString() 
+    });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to get daily prompt' });
+    res.status(500).json({ error: 'Failed to get journal header', details: error.message });
   }
 };
 
 export const createEntry = async (req: Request, res: Response) => {
   try {
-    const { tenantId, userId, content, prompt, category } = req.body;
+    const { tenantId, userId, content, date, category } = req.body;
     const db = await getDb(tenantId);
 
-    const entryId = crypto.randomUUID();
+    if (!date) {
+        return res.status(400).json({ error: 'Date is required (YYYY-MM-DD)' });
+    }
 
-    await db.insert(schema.journalEntries).values({
-      id: entryId,
-      tenantId,
-      userId,
-      prompt: prompt || null,
-      content,
-      category: category || 'general',
-      createdAt: new Date(),
-    });
+    // Check if an entry already exists for this user on this specific date
+    const existingEntries = await db
+      .select()
+      .from(schema.journalEntries)
+      .where(
+        and(
+          eq(schema.journalEntries.tenantId, tenantId),
+          eq(schema.journalEntries.userId, userId),
+          eq(schema.journalEntries.date, date)
+        )
+      );
+    
+    let entryId: string;
+    if (existingEntries.length > 0) {
+      const existingEntry = existingEntries[0];
+      entryId = existingEntry.id;
+      const updatedContent = `${existingEntry.content}\n\n${content}`;
+
+      await db.update(schema.journalEntries)
+        .set({ content: updatedContent })
+        .where(eq(schema.journalEntries.id, entryId));
+    } else {
+      entryId = crypto.randomUUID();
+      await db.insert(schema.journalEntries).values({
+        id: entryId,
+        tenantId,
+        userId,
+        prompt: null, // Prompt is no longer stored per user request
+        content,
+        date,
+        category: category || 'general',
+        createdAt: new Date(),
+      });
+    }
 
     // Fire-and-forget background processing
-    embedAndStoreJournalEntry(tenantId, entryId, prompt ? `${prompt}\n\n${content}` : content).catch(err => {
+    embedAndStoreJournalEntry(tenantId, entryId, content).catch(err => {
         console.error(`[Journal] Failed to embed entry ${entryId}:`, err);
     });
 
@@ -59,7 +113,10 @@ export const createEntry = async (req: Request, res: Response) => {
         console.error(`[Journal] Failed to process metrics for ${entryId}:`, err);
     });
 
-    res.status(201).json({ message: 'Entry created', entryId });
+    res.status(existingEntries.length > 0 ? 200 : 201).json({ 
+      message: existingEntries.length > 0 ? 'Entry updated' : 'Entry created', 
+      entryId 
+    });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to create entry', details: error.message });
   }

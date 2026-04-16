@@ -25,7 +25,9 @@ export async function backfillTenantMetrics(tenantId: string) {
   for (const entry of entries) {
     try {
       console.log(`[Backfill] Processing entry ${entry.id} (${entry.createdAt.toDateString()})...`);
-      await processJournalMetrics(tenantId, entry.id, entry.content);
+      await processJournalMetrics(tenantId, entry.id, entry.content, entry.createdAt);
+      // Add delay to prevent rate limits (429)
+      await new Promise(resolve => setTimeout(resolve, 2000));
     } catch (err) {
       console.error(`[Backfill] Failed to process entry ${entry.id}:`, err);
     }

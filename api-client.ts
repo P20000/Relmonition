@@ -81,8 +81,8 @@ export const apiClient = {
     return response.json();
   },
 
-  async getJournalPrompt(): Promise<{ prompt: string, date: string }> {
-    const response = await fetch(`${BASE_URL}/journal/prompt`);
+  async getJournalPrompt(tenantId: string, userId: string): Promise<{ userName: string, partnerName: string, date: string }> {
+    const response = await fetch(`${BASE_URL}/journal/prompt?tenantId=${tenantId}&userId=${userId}`);
     if (!response.ok) {
       const err = await response.json();
       throw new Error(err.details || err.error || 'Failed to fetch prompt');
@@ -90,7 +90,7 @@ export const apiClient = {
     return response.json();
   },
 
-  async createJournalEntry(data: { tenantId: string, userId: string, content: string, prompt?: string, category?: string }) {
+  async createJournalEntry(data: { tenantId: string, userId: string, content: string, date: string, category?: string }) {
     const response = await fetch(`${BASE_URL}/journal/entry`, {
       method: 'POST',
       body: JSON.stringify(data),

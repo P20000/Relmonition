@@ -59,6 +59,7 @@ export const journalEntries = sqliteTable('journal_entries', {
   userId: text('user_id').notNull(),      // Knowing who wrote what
   prompt: text('prompt'),                 // The question for the day
   content: text('content').notNull(),
+  date: text('date').notNull().default('2026-04-16'),           // Format: YYYY-MM-DD
   sentimentScore: integer('sentiment_score'), // -1 to 1 scale
   category: text('category'), // 'conflict', 'appreciation', 'repair'
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
