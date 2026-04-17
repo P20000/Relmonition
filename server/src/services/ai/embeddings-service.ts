@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { callWithRetry } from './ai-utils';
 
 // Singleton — one client for the whole process lifetime
 let _client: GoogleGenerativeAI | null = null;
@@ -21,9 +22,9 @@ function getGeminiClient(): GoogleGenerativeAI {
  */
 export async function embedText(text: string): Promise<number[]> {
   const client = getGeminiClient();
-  const model = client.getGenerativeModel({ model: 'gemini-embedding-001' });
+  const model = client.getGenerativeModel({ model: 'gemini-embedding-2-preview' });
 
-  const result = await model.embedContent(text);
+  const result = await callWithRetry(() => model.embedContent(text));
   return result.embedding.values;
 }
 

@@ -1,21 +1,12 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+
 import { TenantDatabaseManager } from '../../tenant-manager';
 import * as schema from '../../db/schema';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { RelationshipRAGEngine } from './retrieval-engine';
+import { getLLMProvider } from './providers/factory';
 
 const tenantManager = new TenantDatabaseManager();
-
-let _genClient: GoogleGenerativeAI | null = null;
-function getGenClient(): GoogleGenerativeAI {
-  if (!_genClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('[MetricsService] GEMINI_API_KEY is not set.');
-    _genClient = new GoogleGenerativeAI(apiKey);
-  }
-  return _genClient;
-}
 
 interface BehavioralAnalysis {
   score: number; // -1 to 1
@@ -35,14 +26,13 @@ export async function processJournalMetrics(
   content: string,
   targetDate?: Date
 ): Promise<void> {
-  console.log(`[Metrics] Processing behavioral metrics for entry ${entryId} in tenant ${tenantId}`);
+  console.log(`[Metrics] Processing behavioral metrics for entry ${entryId} in tenant ${tenantId} (Hybrid Mode)`);
   
   const { client: db } = await tenantManager.getDatabaseClient(tenantId);
-  const genAI = getGenClient();
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const provider = await getLLMProvider(tenantId);
 
   // 1. Analyze Behaviors
-  const analysis = await analyzeBehavioralMetrics(model, content);
+  const analysis = await analyzeBehavioralMetrics(provider, content);
   
   // 2. Update Journal Entry with Score/Category
   await db.update(schema.journalEntries)
@@ -59,7 +49,8 @@ export async function processJournalMetrics(
   await updateRelationshipInsight(db, tenantId);
 }
 
-async function analyzeBehavioralMetrics(model: any, content: string): Promise<BehavioralAnalysis> {
+async function analyzeBehavioralMetrics(provider: any, content: string): Promise<BehavioralAnalysis> {
+  const systemInstruction = "You are a relationship metrics analyzer using the Gottman Method.";
   const prompt = `
     Analyze this relationship journal entry using the Gottman Method framework.
     Identify connections, repairs, and conflict indicators.
@@ -81,8 +72,7 @@ async function analyzeBehavioralMetrics(model: any, content: string): Promise<Be
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const text = await provider.generateText(prompt, systemInstruction);
     const jsonStr = text.replace(/```json|```/g, '').trim();
     const data = JSON.parse(jsonStr);
     
@@ -145,9 +135,10 @@ async function updateRelationshipInsight(db: any, tenantId: string) {
   
   if (context.length < 1) return;
 
-  const model = getGenClient().getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const provider = await getLLMProvider(tenantId);
+  const systemInstruction = "You are a relationship expert.";
   const prompt = `
-    You are a relationship expert. Based on these recent journal reflections, provide a 
+    Based on these recent journal reflections, provide a 
     "Relationship Pulse" insight. 
     Focus on connection bids made and repair attempts noticed.
     Identify one positive pattern and one opportunity for even deeper connection.
@@ -160,8 +151,7 @@ async function updateRelationshipInsight(db: any, tenantId: string) {
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const content = result.response.text();
+    const content = await provider.generateText(prompt, systemInstruction);
 
     // Store as a new insight
     await db.insert(schema.aiInsights).values({

@@ -113,5 +113,32 @@ export const apiClient = {
       throw new Error(err.details || err.error || 'Failed to fetch entries');
     }
     return response.json();
+  },
+
+  // ─── AI Configuration (BYOK) ───────────────────────────────────────────────
+  async getAIConfigs(tenantId: string) {
+    const response = await fetch(`${BASE_URL}/tenant/${tenantId}/ai-configs`);
+    if (!response.ok) throw new Error('Failed to fetch AI configurations');
+    return response.json();
+  },
+
+  async createAIConfig(tenantId: string, payload: any) {
+    return this.post(`/tenant/${tenantId}/ai-configs`, payload);
+  },
+
+  async activateAIConfig(tenantId: string, configId: string) {
+    const response = await fetch(`${BASE_URL}/tenant/${tenantId}/ai-configs/${configId}/activate`, {
+      method: 'PUT',
+    });
+    if (!response.ok) throw new Error('Failed to activate AI configuration');
+    return response.json();
+  },
+
+  async deleteAIConfig(tenantId: string, configId: string) {
+    const response = await fetch(`${BASE_URL}/tenant/${tenantId}/ai-configs/${configId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete AI configuration');
+    return response.json();
   }
 };

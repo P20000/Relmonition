@@ -1,20 +1,10 @@
 import { embedText } from './embeddings-service';
 import { RelationshipRAGEngine, RetrievedContext } from './retrieval-engine';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TenantDatabaseManager } from '../../tenant-manager';
+import { getLLMProvider } from './providers/factory';
 import crypto from 'crypto';
 
 const tenantManager = new TenantDatabaseManager();
-
-let _genClient: GoogleGenerativeAI | null = null;
-function getGenClient(): GoogleGenerativeAI {
-  if (!_genClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('[RAGService] GEMINI_API_KEY is not set.');
-    _genClient = new GoogleGenerativeAI(apiKey);
-  }
-  return _genClient;
-}
 
 export interface RAGResponse {
   answer: string;
@@ -26,7 +16,7 @@ export interface RAGResponse {
  * Full RAG pipeline:
  *  1. Retrieve semantically relevant journal entries for this tenant
  *  2. Build a grounded prompt with the retrieved context
- *  3. Generate a Gemini response
+ *  3. Generate an AI response using the configured provider
  */
 export async function queryRelationshipMemory(
   tenantId: string,
@@ -36,11 +26,15 @@ export async function queryRelationshipMemory(
   // Step 1: Get tenant DB client
   const { client } = await tenantManager.getDatabaseClient(tenantId);
 
-  // Step 2: Semantic retrieval
+  // Step 2: Semantic retrieval (STABLE: still uses Gemini embeddings)
+  const retrievalStart = Date.now();
   const engine = new RelationshipRAGEngine(client);
   const context: RetrievedContext[] = await engine.retrieveContext(tenantId, query, mode);
+  const retrievalDuration = Date.now() - retrievalStart;
+  console.log(`[RAG Telemetry] Retrieval completed: ${retrievalDuration}ms (${context.length} relevant memories)`);
 
   // Step 3: Build grounded prompt
+  // ... (keep logic as is)
   const contextBlock = context.length > 0
     ? context
         .map((c, i) => `[Memory ${i + 1}] (similarity: ${c.similarity.toFixed(3)})\n${c.content}`)
@@ -57,8 +51,7 @@ export async function queryRelationshipMemory(
        Identify patterns, growth areas, and recurring themes. Be warm, non-judgmental, and constructive.
        Ground your response in the provided memories.`;
 
-  const prompt = `${systemInstruction}
-
+  const prompt = `
 ---
 COUPLE'S RELEVANT MEMORIES:
 ${contextBlock}
@@ -68,11 +61,13 @@ USER QUERY: ${query}
 
 RESPONSE:`;
 
-  // Step 4: Generate with Gemini
-  console.log(`[RAG] Generating response for tenant ${tenantId}, ${context.length} context chunks`);
-  const model = getGenClient().getGenerativeModel({ model: 'gemini-1.5-flash' });
-  const result = await model.generateContent(prompt);
-  const answer = result.response.text();
+  // Step 4: Generate with Adaptable LLM
+  console.log(`[RAG] Generating response for tenant ${tenantId} via ${mode} mode (Hybrid)`);
+  const generationStart = Date.now();
+  const provider = await getLLMProvider(tenantId);
+  const answer = await provider.generateText(prompt, systemInstruction);
+  const generationDuration = Date.now() - generationStart;
+  console.log(`[RAG Telemetry] Generation completed: ${generationDuration}ms`);
 
   return {
     answer,
@@ -88,6 +83,7 @@ RESPONSE:`;
 /**
  * Embed-on-write helper: call this whenever a journal entry is created.
  * Inserts the embedding into Turso so it can be retrieved in future RAG calls.
+ * (STABLE: explicitly uses Gemini embeddings)
  */
 export async function embedAndStoreJournalEntry(
   tenantId: string,

@@ -1,14 +1,17 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+import { getLLMProvider } from "./providers/factory";
 
 /**
  * Generates a short, creative, and personalized greeting for the dashboard.
+ * Uses the adaptable LLM provider (Hybrid Mode).
  * @param name The user's name
+ * @param tenantId The tenant ID (optional) to fetch custom AI config
  */
-export async function generateDynamicGreeting(name: string): Promise<string> {
+export async function generateDynamicGreeting(name: string, tenantId?: string): Promise<string> {
   try {
+    const provider = await getLLMProvider(tenantId);
+    
+    const systemInstruction = "You are a friendly dashboard assistant.";
     const prompt = `
       Generate a short, friendly, and creative greeting for a user named "${name}".
       The user is opening their relationship wellness dashboard (Relmonition).
@@ -22,9 +25,8 @@ export async function generateDynamicGreeting(name: string): Promise<string> {
       Return ONLY the greeting text.
     `;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text().trim();
+    let text = await provider.generateText(prompt, systemInstruction);
+    text = text.trim();
     
     // Cleanup any quotes the AI might include
     text = text.replace(/^["']|["']$/g, '');

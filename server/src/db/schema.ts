@@ -113,3 +113,14 @@ export const chatUploads = sqliteTable('chat_uploads', {
   processed: integer('processed', { mode: 'boolean' }).default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
+export const aiProviderConfigs = sqliteTable('ai_provider_configs', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().references(() => tenants.id),
+  label: text('label').notNull(),
+  provider: text('provider').notNull(), // 'gemini' | 'openai'
+  apiKey: text('api_key').notNull(),
+  baseUrl: text('base_url'),
+  modelName: text('model_name').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).default(false),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});

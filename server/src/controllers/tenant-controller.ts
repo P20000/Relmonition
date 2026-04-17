@@ -115,7 +115,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
       db.select().from(schema.moodLogs).where(eq(schema.moodLogs.tenantId, tid)).orderBy(desc(schema.moodLogs.createdAt)).limit(1),
       db.select().from(schema.aiInsights).where(eq(schema.aiInsights.tenantId, tid)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
       db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.tenantId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(14),
-      generateDynamicGreeting(userName)
+      generateDynamicGreeting(userName, tid)
     ]);
 
     // --- Smart Sync Logic ---

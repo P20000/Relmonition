@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, LogOut, Bell, Moon, Shield, Loader2, CheckCircle2 } from 'lucide-react';
 import { RelationshipManager } from './RelationshipManager';
+import { AIKeyManager } from './AIKeyManager';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../../api-client';
 
@@ -171,12 +172,15 @@ export function Settings({ userEmail, userId, accountType, activeTenantId, onTen
                         </div>
                     </div>
 
-                    {/* Relationship Manager Section */}
                     <RelationshipManager
                         userId={userId}
                         activeTenantId={activeTenantId}
                         onTenantChange={onTenantChange}
                     />
+
+                    {activeTenantId && (
+                        <AIKeyManager tenantId={activeTenantId} />
+                    )}
 
 
                     {/* Preferences Section */}
