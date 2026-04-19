@@ -97,7 +97,8 @@ export const aiInsights = sqliteTable('ai_insights', {
 
 export const embeddings = sqliteTable('embeddings', {
   id: text('id').primaryKey(),
-  entryId: text('entry_id').references(() => journalEntries.id),
+  entryId: text('entry_id').references(() => journalEntries.id, { onDelete: 'cascade' }),
+  chatUploadId: text('chat_upload_id').references(() => chatUploads.id, { onDelete: 'cascade' }),
   tenantId: text('tenant_id').notNull(),      // for tenant-scoped retrieval
   content: text('content').notNull(),         // original text for context window
   vector: text('vector').notNull(),           // JSON-serialised float[] from Gemini
@@ -122,5 +123,25 @@ export const aiProviderConfigs = sqliteTable('ai_provider_configs', {
   baseUrl: text('base_url'),
   modelName: text('model_name').notNull(),
   isActive: integer('is_active', { mode: 'boolean' }).default(false),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// ----------------------------------------------------
+// AI COACH DATA MODELS
+// ----------------------------------------------------
+
+export const coachConversations = sqliteTable('coach_conversations', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull(),
+  userId: text('user_id').notNull(),
+  title: text('title').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const coachMessages = sqliteTable('coach_messages', {
+  id: text('id').primaryKey(),
+  conversationId: text('conversation_id').notNull().references(() => coachConversations.id, { onDelete: 'cascade' }),
+  role: text('role').notNull(), // 'user' | 'assistant'
+  content: text('content').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });

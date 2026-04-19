@@ -1,89 +1,317 @@
 "use client";
-import { useState } from 'react';
-import { Brain, Zap, Search, MessageSquare, Clock, Tag, Upload, FileText, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { 
+  Brain, Zap, Search, MessageSquare, Clock, Tag, Upload, 
+  FileText, Loader2, CheckCircle, AlertCircle, Plus, 
+  History, Pause, RotateCcw, Edit3, Square, Send, ChevronRight,
+  Trash2, Database, RefreshCcw, Activity, Layers, X
+} from 'lucide-react';
 import { apiClient } from '../../api-client';
 import { useAuth } from '../context/AuthContext';
 
 type CoachMode = 'retrieval' | 'exploration';
 type Message = {
+  id?: string;
   role: 'user' | 'assistant';
   content: string;
   citations?: string[];
   timestamp?: string;
 };
 
+type Conversation = {
+  id: string;
+  title: string;
+  createdAt: string;
+};
+
+type ContextUpload = {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  processed: boolean;
+  createdAt: string;
+};
+
 export function AICoach() {
   const { activeTenantId, userId } = useAuth();
   const [mode, setMode] = useState<CoachMode>('retrieval');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: 'I\'m your relationship coach, here to help you navigate challenges and strengthen your connection. I have context from your shared journey and can work in two modes:\n\n**Retrieval Mode** for quick conflict de-escalation and immediate guidance.\n**Exploration Mode** for deep pattern analysis and relationship mapping.',
-      timestamp: 'Coach Ready',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState<string | null>(null); // messageId being edited
+  const [editInput, setEditInput] = useState('');
+  
+  const [contextUploads, setContextUploads] = useState<ContextUpload[]>([]);
+  const [showStrategyModal, setShowStrategyModal] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [uploadError, setUploadError] = useState('');
 
-  const retrievalExamples = [
-    'Help me respond to this conflict',
-    'Quick tips for tonight\'s conversation',
-    'De-escalation strategies',
-  ];
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const isUpdatingFromStream = useRef(false);
 
-  const explorationExamples = [
-    'Analyze our communication patterns',
-    'Map recurring conflicts',
-    'Identify relationship strengths',
-  ];
+  const glassCard = {
+    background: 'var(--glass-bg)',
+    backdropFilter: 'blur(20px)',
+    border: '1px solid var(--glass-border)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+  };
 
-  const handleSend = async () => {
-    if (!input.trim() || isSending || !activeTenantId) return;
+  // ─── Initial Load ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (activeTenantId && userId) {
+      loadConversations();
+      loadContextUploads();
+    }
+  }, [activeTenantId, userId]);
+
+  useEffect(() => {
+    // DO NOT reload messages if we just set the sessionId during a stream
+    // This prevented user messages from disappearing when starting new chats
+    if (activeSessionId && !isUpdatingFromStream.current) {
+      loadMessages(activeSessionId);
+    } else if (!activeSessionId) {
+      setMessages([{
+        role: 'assistant',
+        content: 'I\'m your relationship coach. Select a past conversation or start a new one to begin.\n\n**Retrieval Mode** for rapid de-escalation.\n**Exploration Mode** for deep pattern analysis.',
+        timestamp: 'Coach Ready',
+      }]);
+    }
+    // Reset the guard
+    isUpdatingFromStream.current = false;
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const loadConversations = async () => {
+    try {
+      const data = await apiClient.get(`/coach/sessions/${activeTenantId}?userId=${userId}`);
+      setConversations(data);
+    } catch (err) {
+      console.error('Failed to load conversations', err);
+    }
+  };
+
+  const loadMessages = async (sessionId: string) => {
+    try {
+      const data = await apiClient.get(`/coach/sessions/${activeTenantId}/${sessionId}/messages`);
+      setMessages(data.map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })));
+    } catch (err) {
+      console.error('Failed to load messages', err);
+    }
+  };
+
+  const loadContextUploads = async () => {
+    if (!activeTenantId) return;
+    try {
+      const data = await apiClient.get(`/coach/upload-status/${activeTenantId}`);
+      setContextUploads(data);
+    } catch (err) {
+      console.error('Failed to load context uploads', err);
+    }
+  };
+
+  // ─── Deletion Logic ────────────────────────────────────────────────────────
+  const handleDeleteContext = async (uploadId: string) => {
+    if (!window.confirm('Are you sure you want to delete this context fragment? This will remove its knowledge from the AI.')) return;
+    
+    try {
+      await apiClient.delete(`/coach/context/${activeTenantId}/${uploadId}`);
+      loadContextUploads();
+    } catch (err) {
+      console.error('Deletion failed', err);
+    }
+  };
+
+  // ─── Streaming Logic ──────────────────────────────────────────────────────
+  const processStream = async (response: Response) => {
+    const reader = response.body?.getReader();
+    if (!reader) return;
+
+    setIsStreaming(true);
+    const decoder = new TextDecoder();
+    let accumulatedContent = '';
+
+    // Skeleton assistant message
+    const assistantMsg: Message = { role: 'assistant', content: '', timestamp: 'Thinking...' };
+    setMessages(prev => [...prev.filter(m => m.timestamp !== 'Thinking...'), assistantMsg]);
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.substring(6));
+            if (data.chunk) {
+              accumulatedContent += data.chunk;
+              setMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  ...updated[updated.length - 1],
+                  content: accumulatedContent,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+                return updated;
+              });
+            }
+          } catch (e) { /* partial json ignored */ }
+        } else if (line.startsWith('event: session')) {
+          const nextLine = lines[lines.indexOf(line) + 1];
+          if (nextLine?.startsWith('data: ')) {
+            const sessionData = JSON.parse(nextLine.substring(6));
+            isUpdatingFromStream.current = true;
+            setActiveSessionId(sessionData.sessionId);
+            loadConversations();
+          }
+        }
+      }
+    }
+    setIsStreaming(false);
+  };
+
+  const handleSend = async (customQuery?: string) => {
+    const query = customQuery || input;
+    if (!query.trim() || isSending || isStreaming || !activeTenantId) return;
 
     setIsSending(true);
-    const userMessage: Message = {
-      role: 'user',
-      content: input,
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-    };
+    if (!customQuery) setInput('');
+    
+    // Add user message to UI immediately
+    if (!customQuery) {
+        setMessages(prev => [...prev, {
+          role: 'user',
+          content: query,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+    }
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    abortControllerRef.current = new AbortController();
 
     try {
-      const result = await apiClient.post('/rag/query', {
-        tenantId: activeTenantId,
-        query: input,
-        mode,
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/coach/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: activeTenantId,
+          userId,
+          sessionId: activeSessionId,
+          query,
+          mode,
+        }),
+        signal: abortControllerRef.current.signal
       });
 
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: result.answer,
-        citations: result.sources?.slice(0, 3).map((s: any) => s.content.substring(0, 60) + '...'),
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      if (!response.ok) throw new Error('Stream failed');
+      await processStream(response);
     } catch (err: any) {
-      console.error('Coach Error:', err);
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: "I'm sorry, I'm having trouble connecting to your relationship history right now. Please try again in a moment.",
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      if (err.name === 'AbortError') {
+        setMessages(prev => [...prev, { role: 'assistant', content: '... (Generation Paused)', timestamp: 'Stopped' }]);
+      } else {
+        console.error('Coach Error:', err);
+      }
+    } finally {
+      setIsSending(false);
+      setIsStreaming(false);
+    }
+  };
+
+  const handleStop = () => {
+    abortControllerRef.current?.abort();
+  };
+
+  const handleRegenerate = async () => {
+    if (isSending || isStreaming || !activeSessionId) return;
+    setIsSending(true);
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/coach/chat/regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: activeTenantId,
+          sessionId: activeSessionId,
+          mode,
+        })
+      });
+
+      // Remove last assistant message from UI to refresh it
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === 'assistant') return prev.slice(0, -1);
+        return prev;
+      });
+
+      await processStream(response);
+    } catch (err) {
+      console.error('Regeneration failed', err);
     } finally {
       setIsSending(false);
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEdit = async () => {
+    if (!editInput.trim() || isSending || isStreaming || !activeSessionId) return;
+    setIsSending(true);
+    setIsEditing(null);
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/coach/chat/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: activeTenantId,
+          sessionId: activeSessionId,
+          newQuery: editInput,
+          mode,
+        })
+      });
+
+      // Reset messages to the new point
+      setMessages(prev => {
+        // Find last user index and slice up to there
+        const lastUserIdx = [...prev].reverse().findIndex(m => m.role === 'user');
+        if (lastUserIdx === -1) return prev;
+        const slicePoint = prev.length - 1 - lastUserIdx;
+        const newHistory = prev.slice(0, slicePoint);
+        return [...newHistory, { role: 'user', content: editInput, timestamp: 'Edited' }];
+      });
+
+      await processStream(response);
+    } catch (err) {
+      console.error('Edit failed', err);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const startNewConversation = () => {
+    setActiveSessionId(null);
+    setMessages([{
+      role: 'assistant',
+      content: 'Starting new conversation. How can I help you and your partner today?',
+      timestamp: 'New Stream'
+    }]);
+  };
+
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeTenantId || !userId) return;
+    if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
       setUploadError('File size must be less than 10MB');
@@ -91,240 +319,370 @@ export function AICoach() {
       return;
     }
 
-    setUploadedFile(file);
+    setPendingFile(file);
+    setShowStrategyModal(true);
+  };
+
+  const executeUpload = async (strategy: 'append' | 'replace') => {
+    if (!pendingFile || !activeTenantId || !userId) return;
+
     setUploadStatus('uploading');
     setUploadError('');
+    setShowStrategyModal(false);
 
     try {
-      const fileContent = await file.text();
+      const fileContent = await pendingFile.text();
       await apiClient.post('/coach/upload', {
         tenantId: activeTenantId,
         userId,
-        fileName: file.name,
+        fileName: pendingFile.name,
         fileContent,
-        fileSize: file.size,
+        fileSize: pendingFile.size,
+        strategy
       });
 
       setUploadStatus('success');
-      setTimeout(() => setUploadStatus('idle'), 3000);
+      setPendingFile(null);
+      loadContextUploads();
+      
+      // Auto-refresh context status after a few seconds to check 'processed' flag
+      setTimeout(() => loadContextUploads(), 5000);
     } catch (err: any) {
       setUploadError(err.message || 'Upload failed');
       setUploadStatus('error');
     }
   };
 
+  // ─── Render Helpers ───────────────────────────────────────────────────────
+  const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-center gap-3 mb-3">
-            <Brain className="w-8 h-8 text-primary" aria-hidden="true" />
-            <h1>AI Relationship Coach</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Context-aware guidance powered by your relationship history
-          </p>
-        </header>
-
-        {/* Mode Selector */}
-        <div
-          className="mb-6 p-2 rounded-2xl inline-flex gap-2"
-          style={{
-            background: 'var(--glass-bg)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid var(--glass-border)',
-          }}
-          role="tablist"
-        >
-          <button
-            onClick={() => setMode('retrieval')}
-            className={`px-6 py-3 rounded-xl transition-all ${
-              mode === 'retrieval'
-                ? 'bg-primary text-primary-foreground shadow-lg'
-                : 'hover:bg-accent/50'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4" />
-              <span>Retrieval Mode</span>
-            </div>
-            <div className="text-xs mt-1 opacity-80">Rapid conflict support</div>
-          </button>
-
-          <button
-            onClick={() => setMode('exploration')}
-            className={`px-6 py-3 rounded-xl transition-all ${
-              mode === 'exploration'
-                ? 'bg-primary text-primary-foreground shadow-lg'
-                : 'hover:bg-accent/50'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Search className="w-4 h-4" />
-              <span>Exploration Mode</span>
-            </div>
-            <div className="text-xs mt-1 opacity-80">Deep pattern analysis</div>
-          </button>
-        </div>
-
-        {/* Chat Interface */}
-        <div
-          className="rounded-3xl overflow-hidden mb-8"
-          style={{
-            background: 'var(--glass-bg)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid var(--glass-border)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-          }}
-        >
-          <div className="h-[500px] overflow-y-auto p-6 space-y-6">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] ${
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-card border border-border shadow-sm'
-                  } rounded-2xl p-4`}
-                >
-                  <div className="whitespace-pre-wrap leading-relaxed">
-                    {message.content}
-                  </div>
-
-                  {message.citations && message.citations.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-border/50">
-                      <div className="flex flex-wrap gap-2">
-                        {message.citations.map((citation, idx) => (
-                          <span key={idx} className="text-[10px] px-2 py-0.5 rounded-full bg-accent/20 text-accent-foreground">
-                            {citation}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {message.timestamp && (
-                    <div className="mt-2 text-[10px] opacity-60 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {message.timestamp}
-                    </div>
-                  )}
+    <div className="min-h-screen flex">
+      {/* Strategy Choice Modal */}
+      {showStrategyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-300">
+           <div className="max-w-md w-full mx-4 p-8 rounded-3xl border border-border shadow-2xl bg-card">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                   <h3 className="text-xl font-bold tracking-tight">Update Relationship Context</h3>
+                   <p className="text-sm text-muted-foreground mt-1">How would you like to handle {pendingFile?.name}?</p>
                 </div>
+                <button onClick={() => setShowStrategyModal(false)} className="p-2 -mr-2 rounded-full hover:bg-accent opacity-50"><X className="w-5 h-5"/></button>
               </div>
-            ))}
-          </div>
 
-          <div className="p-6 border-t border-border bg-card/50">
-            <div className="flex gap-3">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder={mode === 'retrieval' ? 'Ask for advice...' : 'Explore a pattern...'}
-                className="flex-1 p-3 rounded-xl bg-input border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                rows={2}
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isSending}
-                className="px-6 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center min-w-[60px]"
+              <div className="grid gap-4">
+                 <button 
+                   onClick={() => executeUpload('append')}
+                   className="flex items-start gap-4 p-5 rounded-2xl border border-border hover:border-primary hover:bg-primary/5 text-left transition-all group"
+                 >
+                    <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                       <Plus className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-sm">Append to History</div>
+                      <p className="text-xs text-muted-foreground mt-1">Add this file as a new fragment. Current context remains intact.</p>
+                    </div>
+                 </button>
+
+                 <button 
+                   onClick={() => executeUpload('replace')}
+                   className="flex items-start gap-4 p-5 rounded-2xl border border-border hover:border-destructive hover:bg-destructive/5 text-left transition-all group"
+                 >
+                    <div className="p-3 rounded-xl bg-destructive/10 text-destructive group-hover:scale-110 transition-transform">
+                       <RefreshCcw className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-sm">Replace Context</div>
+                      <p className="text-xs text-muted-foreground mt-1">Clear ALL existing uploaded context and replace it with this file.</p>
+                    </div>
+                 </button>
+              </div>
+              
+              <button 
+                onClick={() => setShowStrategyModal(false)}
+                className="w-full mt-6 py-3 text-sm font-medium opacity-50 hover:opacity-100"
               >
-                {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageSquare className="w-5 h-5" />}
+                Cancel
               </button>
-            </div>
-          </div>
+           </div>
         </div>
+      )}
 
-        {/* Quick Examples */}
-        <div className="mb-12">
-          <h3 className="mb-4 text-sm text-muted-foreground uppercase tracking-wider font-semibold">Suggested Questions</h3>
-          <div className="flex flex-wrap gap-3">
-            {(mode === 'retrieval' ? retrievalExamples : explorationExamples).map((example, index) => (
-              <button
-                key={index}
-                onClick={() => setInput(example)}
-                className="px-4 py-2 rounded-lg bg-card border border-border hover:border-primary transition-all"
-              >
-                {example}
-              </button>
-            ))}
+      {/* Sidebar: Conversations */}
+      <aside 
+        className="w-80 border-r border-border h-screen sticky top-0 overflow-y-auto p-6 hidden lg:block"
+        style={{ background: 'var(--card)' }}
+      >
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2">
+            <History className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold tracking-tight">History</h2>
           </div>
-        </div>
-
-        {/* Upload Section (Relocated from Settings) */}
-        <div
-          className="p-8 rounded-3xl"
-          style={{
-            background: 'var(--glass-bg)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid var(--glass-border)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-          }}
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <Upload className="w-6 h-6 text-primary" />
-            <h2>Enhance My Context</h2>
-          </div>
-
-          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-            Upload your previous chat conversations (WhatsApp, iMessage, etc.) to help me analyze 
-            your communication patterns and provide significantly deeper guidance based on your real history.
-          </p>
-
-          <div
-            className="border-2 border-dashed border-border rounded-2xl p-8 text-center mb-4 hover:border-primary transition-colors cursor-pointer group"
-            onClick={() => document.getElementById('file-upload')?.click()}
+          <button 
+            onClick={startNewConversation}
+            className="p-2 rounded-full hover:bg-accent text-primary transition-colors"
+            title="New Chat"
           >
-            <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            <p className="mb-2 font-medium group-hover:text-primary transition-colors">
-              Click to upload or drag and drop
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Supports TXT, JSON, CSV files (Max 10MB)
-            </p>
-            <input
-              id="file-upload"
-              type="file"
-              accept=".txt,.json,.csv"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-          </div>
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
 
-          {uploadStatus !== 'idle' && (
-            <div
-              className="p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2"
-              style={{
-                background: uploadStatus === 'success' ? 'var(--accent)' : uploadStatus === 'error' ? 'var(--destructive)' : 'var(--muted)',
-                border: '1px solid var(--border)',
-              }}
+        <div className="space-y-2">
+          {conversations.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setActiveSessionId(c.id)}
+              className={`w-full text-left p-4 rounded-2xl transition-all group relative border ${
+                activeSessionId === c.id 
+                ? 'bg-primary/10 border-primary/20 text-primary' 
+                : 'hover:bg-accent/40 border-transparent hover:border-border'
+              }`}
             >
-              {uploadStatus === 'uploading' && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
-              {uploadStatus === 'success' && <CheckCircle className="w-5 h-5 text-green-500" />}
-              {uploadStatus === 'error' && <AlertCircle className="w-5 h-5 text-destructive" />}
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  {uploadedFile?.name || 'Processing...'}
-                </p>
-                <p className="text-xs text-muted-foreground opacity-80">
-                  {uploadStatus === 'uploading' && 'Securely uploading your chat history...'}
-                  {uploadStatus === 'success' && 'Upload complete! These insights will be available in our future sessions.'}
-                  {uploadStatus === 'error' && uploadError}
-                </p>
-              </div>
+              <div className="font-medium text-sm truncate mb-1 pr-4">{c.title}</div>
+              <div className="text-[10px] opacity-60 uppercase tracking-widest">{new Date(c.createdAt).toLocaleDateString()}</div>
+              {activeSessionId === c.id && <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" />}
+            </button>
+          ))}
+          {conversations.length === 0 && (
+            <div className="text-center py-10 opacity-30">
+              <MessageSquare className="w-10 h-10 mx-auto mb-2" />
+              <p className="text-xs">No conversations yet</p>
             </div>
           )}
         </div>
-      </div>
+      </aside>
+
+      {/* Main Chat Area */}
+      <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <header className="mb-8 flex justify-between items-start">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <Brain className="w-6 h-6 text-primary" />
+                </div>
+                <h1>AI Relationship Coach</h1>
+              </div>
+              <p className="text-muted-foreground text-sm">
+                Empathetic guidance grounded in your shared history
+              </p>
+            </div>
+            {/* Mode Switcher */}
+            <div className="bg-muted p-1 rounded-xl flex gap-1">
+               <button 
+                 onClick={() => setMode('retrieval')}
+                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${mode === 'retrieval' ? 'bg-background shadow-sm' : 'opacity-50 hover:opacity-100'}`}
+               >
+                 Retrieval
+               </button>
+               <button 
+                 onClick={() => setMode('exploration')}
+                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${mode === 'exploration' ? 'bg-background shadow-sm' : 'opacity-50 hover:opacity-100'}`}
+               >
+                 Exploration
+               </button>
+            </div>
+          </header>
+
+          {/* Chat Messages */}
+          <div
+            className="rounded-3xl overflow-hidden mb-6 flex flex-col h-[650px]"
+            style={glassCard}
+          >
+            <div className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth">
+              {messages.map((message, index) => {
+                const isLastPrompt = message.role === 'user' && message.content === lastUserMessage?.content;
+                
+                return (
+                  <div
+                    key={index}
+                    className={`flex animate-in fade-in slide-in-from-bottom-3 duration-300 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] group relative ${
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/10'
+                          : 'bg-card border border-border shadow-sm'
+                      } ${isEditing === message.id ? 'w-full' : ''} rounded-2xl p-5`}
+                    >
+                      {/* Message Content */}
+                      <div className="whitespace-pre-wrap leading-relaxed text-sm">
+                        {isEditing === message.id ? (
+                           <div className="space-y-3">
+                              <textarea 
+                                value={editInput}
+                                onChange={(e) => setEditInput(e.target.value)}
+                                className="w-full bg-primary-foreground/10 text-primary-foreground p-3 rounded-lg border border-primary-foreground/20 focus:outline-none"
+                                rows={2}
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={handleEdit} className="px-3 py-1.5 bg-background text-primary text-xs font-bold rounded-md">Save & Regenerate</button>
+                                <button onClick={() => setIsEditing(null)} className="px-3 py-1.5 text-xs font-medium text-primary-foreground/70">Cancel</button>
+                              </div>
+                           </div>
+                        ) : (
+                          message.content
+                        )}
+                      </div>
+
+                      {/* Prompt Controls (Latest Only) */}
+                      {isLastPrompt && !isStreaming && !isSending && !isEditing && (
+                        <div className="absolute -bottom-4 right-2 flex gap-1 animate-in zoom-in-50">
+                           <button 
+                             onClick={() => { setIsEditing(message.id || 'last'); setEditInput(message.content); }}
+                             className="p-1.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-primary transition-colors shadow-sm"
+                             title="Edit Prompt"
+                           >
+                             <Edit3 className="w-3.5 h-3.5" />
+                           </button>
+                           <button 
+                             onClick={handleRegenerate}
+                             className="p-1.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-primary transition-colors shadow-sm"
+                             title="Regenerate Response"
+                           >
+                             <RotateCcw className="w-3.5 h-3.5" />
+                           </button>
+                        </div>
+                      )}
+
+                      {message.timestamp && (
+                        <div className="mt-3 text-[10px] opacity-60 flex items-center gap-1 font-medium uppercase tracking-wider">
+                          <Clock className="w-3 h-3" />
+                          {message.timestamp}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input Footer */}
+            <div className="p-6 border-t border-border bg-card/30 backdrop-blur-sm">
+              <div className="flex gap-3 items-end">
+                <div className="flex-1 relative">
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    placeholder={mode === 'retrieval' ? 'Ask for guidance...' : 'Explore patterns...'}
+                    className="w-full p-4 pr-12 rounded-2xl bg-input/50 border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm min-h-[56px] max-h-32"
+                    rows={1}
+                    disabled={isSending || isStreaming}
+                  />
+                  {isStreaming ? (
+                    <button
+                      onClick={handleStop}
+                      className="absolute right-3 bottom-3 p-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors animate-pulse"
+                      title="Stop Generation"
+                    >
+                      <Square className="w-4 h-4 fill-current" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleSend()}
+                      disabled={!input.trim() || isSending}
+                      className="absolute right-3 bottom-3 p-2 rounded-xl bg-primary text-primary-foreground hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-30"
+                    >
+                       {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Context Management Card */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
+             {/* Upload Block */}
+             <div className="p-8 rounded-3xl" style={glassCard}>
+                <div className="flex items-center gap-3 mb-4">
+                   <Upload className="w-5 h-5 text-primary" />
+                   <h2 className="text-lg font-semibold tracking-tight">Enhance Context</h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                  Upload WhatsApp or iMessage logs to provide the AI with deep semantic memory of your history.
+                </p>
+                <button 
+                  onClick={() => document.getElementById('chat-history-upload')?.click()}
+                  className="w-full py-8 rounded-2xl border-2 border-dashed border-border hover:border-primary transition-all flex flex-col items-center gap-2 group relative overflow-hidden"
+                >
+                   {uploadStatus === 'uploading' ? (
+                     <>
+                       <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                       <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Uploading...</span>
+                     </>
+                   ) : (
+                     <>
+                       <Database className="w-8 h-8 opacity-30 group-hover:opacity-100 group-hover:text-primary transition-all group-hover:scale-110" />
+                       <span className="text-[10px] font-bold opacity-60 group-hover:opacity-100 uppercase tracking-widest">Select TXT/JSON Log</span>
+                     </>
+                   )}
+                   <input 
+                    id="chat-history-upload" 
+                    type="file" 
+                    className="hidden" 
+                    accept=".txt,.json" 
+                    onChange={handleFileSelection} 
+                    disabled={uploadStatus === 'uploading'}
+                  />
+                </button>
+                {uploadStatus === 'success' && <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 text-[10px] text-center font-bold uppercase tracking-wider animate-in slide-in-from-top-2">Upload confirmed! Processing...</div>}
+                {uploadStatus === 'error' && <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs text-center font-medium">{uploadError}</div>}
+             </div>
+
+             {/* Existing Context List */}
+             <div className="p-8 rounded-3xl" style={glassCard}>
+                <div className="flex items-center justify-between mb-4">
+                   <div className="flex items-center gap-3">
+                      <Layers className="w-5 h-5 text-primary" />
+                      <h2 className="text-lg font-semibold tracking-tight">Level 1 Context</h2>
+                   </div>
+                   <div className="text-[10px] font-bold text-primary px-2 py-1 rounded bg-primary/10 uppercase tracking-widest">
+                      {contextUploads.filter(u => u.processed).length} Active
+                   </div>
+                </div>
+                
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                   {contextUploads.map((u) => (
+                     <div key={u.id} className="flex items-center justify-between p-3 rounded-xl bg-accent/20 border border-border/50 group">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                           {u.processed ? (
+                             <Activity className="w-4 h-4 text-green-500" />
+                           ) : (
+                             <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                           )}
+                           <div className="overflow-hidden">
+                              <div className="text-xs font-medium truncate">{u.fileName}</div>
+                              <div className="text-[9px] opacity-50 uppercase tracking-tighter">{(u.fileSize / 1024).toFixed(1)} KB • {new Date(u.createdAt).toLocaleDateString()}</div>
+                           </div>
+                        </div>
+                        <button 
+                          onClick={() => handleDeleteContext(u.id)}
+                          className="p-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                           <Trash2 className="w-4 h-4" />
+                        </button>
+                     </div>
+                   ))}
+                   {contextUploads.length === 0 && (
+                     <div className="flex flex-col items-center justify-center py-8 opacity-20">
+                        <Database className="w-8 h-8 mb-2" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Empty Semantic Memory</span>
+                     </div>
+                   )}
+                </div>
+             </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

@@ -13,7 +13,7 @@ const tenantManager = new TenantDatabaseManager();
  * Returns all saved AI configurations for a tenant.
  */
 export async function getAIConfigs(req: Request, res: Response) {
-  const { tenantId } = req.params;
+  const tenantId = req.params.tenantId as string;
   try {
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
     
@@ -41,7 +41,7 @@ export async function getAIConfigs(req: Request, res: Response) {
  * Adds a new AI configuration.
  */
 export async function createAIConfig(req: Request, res: Response) {
-  const { tenantId } = req.params;
+  const tenantId = req.params.tenantId as string;
   const { label, provider, apiKey, baseUrl, modelName } = req.body;
 
   if (!label || !provider || !apiKey || !modelName) {
@@ -76,7 +76,8 @@ export async function createAIConfig(req: Request, res: Response) {
  * Sets a configuration as active and deactivates others for the tenant.
  */
 export async function activateAIConfig(req: Request, res: Response) {
-  const { tenantId, configId } = req.params;
+  const tenantId = req.params.tenantId as string;
+  const configId = req.params.configId as string;
 
   try {
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
@@ -108,7 +109,8 @@ export async function activateAIConfig(req: Request, res: Response) {
  * DELETE /api/v1/tenant/:tenantId/ai-configs/:configId
  */
 export async function deleteAIConfig(req: Request, res: Response) {
-  const { tenantId, configId } = req.params;
+  const tenantId = req.params.tenantId as string;
+  const configId = req.params.configId as string;
 
   try {
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);

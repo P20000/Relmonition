@@ -4,6 +4,15 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export const apiClient = {
+  async get(path: string) {
+    const response = await fetch(`${BASE_URL}${path}`);
+    if (!response.ok) {
+       const err = await response.json().catch(() => ({}));
+       throw new Error(err.details || err.error || `GET Request failed: ${path}`);
+    }
+    return response.json();
+  },
+
   async getTenantData(tenantId: string) {
     const response = await fetch(`${BASE_URL}/tenant/${tenantId}`);
     if (!response.ok) throw new Error('Failed to fetch data');

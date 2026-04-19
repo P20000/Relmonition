@@ -39,4 +39,40 @@ export class OpenAIProvider implements AIProvider {
 
     return response.choices[0]?.message?.content || "";
   }
+
+  async *generateStream(
+    prompt: string, 
+    systemInstruction?: string,
+    signal?: AbortSignal
+  ): AsyncGenerator<string> {
+    const messages: any[] = [];
+    
+    if (systemInstruction) {
+      messages.push({ role: "system", content: systemInstruction });
+    }
+    
+    messages.push({ role: "user", content: prompt });
+
+    try {
+      const stream = await this.client.chat.completions.create({
+        model: this.modelName,
+        messages,
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        if (signal?.aborted) {
+          console.log("[OpenAI] Stream aborted by signal");
+          return;
+        }
+        const chunkText = chunk.choices[0]?.delta?.content || "";
+        if (chunkText) {
+          yield chunkText;
+        }
+      }
+    } catch (error) {
+      console.error("[OpenAI] Streaming Error:", error);
+      throw error;
+    }
+  }
 }

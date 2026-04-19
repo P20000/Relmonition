@@ -22,4 +22,33 @@ export class GeminiProvider implements AIProvider {
     const response = await result.response;
     return response.text();
   }
+
+  async *generateStream(
+    prompt: string, 
+    systemInstruction?: string,
+    signal?: AbortSignal
+  ): AsyncGenerator<string> {
+    const model = this.genAI.getGenerativeModel({ 
+      model: this.modelName,
+      systemInstruction: systemInstruction 
+    });
+
+    try {
+      // Note: @google/generative-ai doesn't natively support AbortSignal in generateContentStream 
+      // yet in the same way fetch does, but we can check it between chunks.
+      const result = await model.generateContentStream(prompt);
+
+      for await (const chunk of result.stream) {
+        if (signal?.aborted) {
+          console.log("[Gemini] Stream aborted by signal");
+          return;
+        }
+        const chunkText = chunk.text();
+        yield chunkText;
+      }
+    } catch (error) {
+      console.error("[Gemini] Streaming Error:", error);
+      throw error;
+    }
+  }
 }

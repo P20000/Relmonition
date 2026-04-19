@@ -5,6 +5,7 @@ import { embedText, cosineSimilarity } from './embeddings-service';
 
 export interface RetrievedContext {
   entryId: string | null;
+  chatUploadId: string | null;
   content: string;
   similarity: number;
   createdAt: Date;
@@ -59,6 +60,7 @@ export class RelationshipRAGEngine {
 
         return {
           entryId: row.entryId,
+          chatUploadId: row.chatUploadId,
           content: row.content,
           similarity: cosineSimilarity(queryVector, storedVector),
           createdAt: row.createdAt,
