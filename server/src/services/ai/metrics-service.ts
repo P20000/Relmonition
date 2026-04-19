@@ -165,3 +165,181 @@ async function updateRelationshipInsight(db: any, tenantId: string) {
     console.error("[Metrics] Insight generation failed:", error);
   }
 }
+
+/**
+ * Analyzes deep historical data from a chat log to populate the relationship history chart.
+ */
+export async function analyzeHistoryFromChat(
+  tenantId: string,
+  content: string
+): Promise<void> {
+  console.log(`[Metrics] Starting deep historical analysis for tenant ${tenantId}`);
+  const { client: db } = await tenantManager.getDatabaseClient(tenantId);
+  const provider = await getLLMProvider(tenantId);
+
+  // 1. Group by Week
+  const weeklyBuckets = extractWeeklyWindows(content);
+  console.log(`[Metrics] Identified ${weeklyBuckets.size} weeks of history.`);
+
+  // 2. Process each week
+  for (const [weekDate, lines] of weeklyBuckets.entries()) {
+    const chatSnippet = lines.join('\n');
+    if (chatSnippet.length < 50) continue;
+
+    console.log(`[Metrics] Analyzing week: ${weekDate}`);
+    
+    // 3. Smart Skip: Check if this week is already analyzed to save Gemini quota
+    const existing = await db.select().from(schema.relationshipHealthHistory)
+      .where(and(
+        eq(schema.relationshipHealthHistory.tenantId, tenantId),
+        eq(schema.relationshipHealthHistory.date, weekDate)
+      ))
+      .limit(1);
+
+    if (existing.length > 0 && existing[0].score !== 50 && existing[0].summary !== 'Analysis pending.') {
+      console.log(`[Metrics] Skipping already analyzed week: ${weekDate}`);
+      continue;
+    }
+
+    // 4. Analyze with Rate-Limit Pacing
+    try {
+      const analysis = await analyzeHistoricalWeek(provider, chatSnippet);
+      
+      // 5. Update DB
+      await db.insert(schema.relationshipHealthHistory).values({
+        id: crypto.randomUUID(),
+        tenantId,
+        date: weekDate,
+        score: analysis.score,
+        partner1Mood: analysis.partner1Mood,
+        partner2Mood: analysis.partner2Mood,
+        summary: analysis.summary,
+        createdAt: new Date(),
+      }).onConflictDoUpdate({
+        target: [schema.relationshipHealthHistory.tenantId, schema.relationshipHealthHistory.date],
+        set: {
+          score: analysis.score,
+          partner1Mood: analysis.partner1Mood,
+          partner2Mood: analysis.partner2Mood,
+          summary: analysis.summary,
+        }
+      });
+    } catch (err: any) {
+      console.warn(`[Metrics] Failed to analyze week ${weekDate}, skipping after rate limit or error.`, err.message);
+    }
+
+    // Add a conservative pacing delay (4 seconds) to stay well under Gemini Free Tier limits (15 RPM)
+    await new Promise(resolve => setTimeout(resolve, 4000));
+  }
+  
+  console.log(`[Metrics] Historical analysis complete for tenant ${tenantId}`);
+}
+
+function extractWeeklyWindows(chatContent: string): Map<string, string[]> {
+  const weeks = new Map<string, string[]>();
+  const lines = chatContent.split('\n');
+  
+  // Stricter regex to ensure we match at the start of a line
+  const dateRegex = /^(?:\[)?(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/;
+
+  const now = new Date();
+  const minDate = new Date('2015-01-01');
+
+  // Format tracking: -1 for unknown, 0 for MM/DD, 1 for DD/MM
+  let formatType = -1; 
+
+  for (const line of lines) {
+    const match = line.trim().match(dateRegex);
+    if (match) {
+      try {
+        const seg1 = parseInt(match[1]);
+        const seg2 = parseInt(match[2]);
+        const year = match[3];
+
+        // Auto-detect format if not yet known
+        if (formatType === -1) {
+          if (seg1 > 12) formatType = 1; // Must be DD/MM
+          else if (seg2 > 12) formatType = 0; // Must be MM/DD
+        }
+
+        // Construct date string based on detected or default (US) format
+        const dateStr = formatType === 1 
+          ? `${match[2]}/${match[1]}/${year}` // Convert DD/MM to MM/DD for JS Date
+          : `${match[1]}/${match[2]}/${year}`;
+
+        const parsedDate = new Date(dateStr);
+        
+        // Sanity Check: Must be valid and within range
+        if (isNaN(parsedDate.getTime()) || parsedDate < minDate || parsedDate > now) {
+          continue;
+        }
+
+        // Immutable calculation of Sunday
+        const day = parsedDate.getDay();
+        const diff = parsedDate.getDate() - day;
+        const sunday = new Date(parsedDate);
+        sunday.setDate(diff); // Use a clone to avoid mutating original parsedDate for filter safety
+        sunday.setHours(0, 0, 0, 0);
+        
+        const weekKey = sunday.toISOString().split('T')[0];
+        
+        if (!weeks.has(weekKey)) weeks.set(weekKey, []);
+        if (weeks.get(weekKey)!.length < 40) {
+          weeks.get(weekKey)!.push(line);
+        }
+      } catch (e) { /* skip */ }
+    }
+  }
+  return weeks;
+}
+
+async function analyzeHistoricalWeek(provider: any, chatSnippet: string): Promise<{
+  score: number;
+  partner1Mood: string;
+  partner2Mood: string;
+  summary: string;
+}> {
+  const systemInstruction = "You are a professional relationship behavioral analyst specializing in granular sentiment detection.";
+  const prompt = `
+    Analyze this one-week snippet of a couple's chat history.
+    Detect the emotional atmosphere and the "Relational Health Score".
+    
+    CRITICAL INSTRUCTION:
+    Be highly granular and specific with the "score" (0-100). 
+    - 50 is NEUTRAL. 
+    - Avoid returning exactly 50 unless the week is truly unremarkable.
+    - Use scores like 68, 72, 45, 38 to show nuance.
+    - Higher score (70+) = high positive affect, mutual support, playfulness.
+    - Lower score (<50) = tension, stonewalling, or high stress lack of connection.
+    
+    Return a JSON object:
+    {
+      "score": integer (0-100),
+      "partner1Mood": "word",
+      "partner2Mood": "word",
+      "summary": "Max 12 words highlighting the specific dynamic of THIS week"
+    }
+    
+    CHAT SNIPPET:
+    """
+    ${chatSnippet}
+    """
+    
+    JSON:
+  `;
+
+  try {
+    const text = await provider.generateText(prompt, systemInstruction);
+    const jsonStr = text.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(jsonStr);
+    
+    return {
+      score: data.score ?? 50,
+      partner1Mood: data.partner1Mood ?? 'neutral',
+      partner2Mood: data.partner2Mood ?? 'neutral',
+      summary: data.summary ?? 'A stable week of connection.'
+    };
+  } catch (error) {
+    return { score: 50, partner1Mood: 'neutral', partner2Mood: 'neutral', summary: 'Analysis pending.' };
+  }
+}

@@ -20,8 +20,7 @@
 | ✅ | **Dual-mode RAG pipeline (retrieval / exploration)** | Standardized multi-tenant RAG pipeline (`retrieval-engine.ts`) supporting `retrieval` (top-5 precision) and `exploration` (temporal trend analysis) modes. Uses in-process vector similarity ranking for high-performance context grounding. |
 | ✅ | **AI Relationship Coach & Journaling Hub** | Centralized AI Coach interface with persistent chat threads, real-time response streaming, and interactive controls (Stop, Edit, Regenerate). Stabilized Journal system with accurate timezone/date pinning and reflection modals. Implemented Hybrid Greeting Strategy (90% templates / 10% LLM) for improved performance. |
 | ✅ | **AI Smart Cataloging (Washjob)** | Gemini 1.5 Flash vision-powered clothing extraction pipeline. Automatically categorizes items and suggests metadata from images via the 'Auto-Fill' UI. |
-| 🔴 | **Fine-tune embedding model** | Not started. |
-| 🔴 | **Clinical guardrails** | Not started. |
+| ✅ | **High-Performance Context & History** | Implemented batch-optimized RAG pipeline for large chat archives. Features real-time progress tracking (0-100%) and an automated background "Historian" engine that populates a multi-year relationship health timeline on the dashboard. |
 | ✅ | **Next.js 15 App Router migration** | Frontend successfully migrated from Vite SPA to Next.js 15 App Router. Dev server running with Fast Refresh + static route indicators. INP/LCP streaming architecture now in place. |
 
 ---

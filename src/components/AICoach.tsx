@@ -29,6 +29,7 @@ type ContextUpload = {
   fileName: string;
   fileSize: number;
   processed: boolean;
+  processingProgress: number;
   createdAt: string;
 };
 
@@ -44,6 +45,7 @@ export function AICoach() {
   const [isEditing, setIsEditing] = useState<string | null>(null); // messageId being edited
   const [editInput, setEditInput] = useState('');
   
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [contextUploads, setContextUploads] = useState<ContextUpload[]>([]);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -307,6 +309,7 @@ export function AICoach() {
       content: 'Starting new conversation. How can I help you and your partner today?',
       timestamp: 'New Stream'
     }]);
+    setIsHistoryOpen(false);
   };
 
   const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -331,7 +334,26 @@ export function AICoach() {
     setShowStrategyModal(false);
 
     try {
-      const fileContent = await pendingFile.text();
+      let fileContent: string;
+      
+      if (pendingFile.name.endsWith('.zip')) {
+        // Read as Base64 for ZIP files
+        fileContent = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Strip the data URL prefix (e.g., data:application/zip;base64,)
+            const base64 = result.split(',')[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(pendingFile);
+        });
+      } else {
+        // Read as plain text for .txt and .json
+        fileContent = await pendingFile.text();
+      }
+
       await apiClient.post('/coach/upload', {
         tenantId: activeTenantId,
         userId,
@@ -408,9 +430,19 @@ export function AICoach() {
         </div>
       )}
 
+      {/* Mobile Sidebar Overlay */}
+      {isHistoryOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden animate-in fade-in duration-300"
+          onClick={() => setIsHistoryOpen(false)}
+        />
+      )}
+
       {/* Sidebar: Conversations */}
       <aside 
-        className="w-80 border-r border-border h-screen sticky top-0 overflow-y-auto p-6 hidden lg:block"
+        className={`fixed inset-y-0 left-0 z-50 w-80 border-r border-border h-screen overflow-y-auto p-6 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:block ${
+          isHistoryOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
         style={{ background: 'var(--card)' }}
       >
         <div className="flex items-center justify-between mb-8">
@@ -431,7 +463,10 @@ export function AICoach() {
           {conversations.map((c) => (
             <button
               key={c.id}
-              onClick={() => setActiveSessionId(c.id)}
+              onClick={() => {
+                setActiveSessionId(c.id);
+                setIsHistoryOpen(false);
+              }}
               className={`w-full text-left p-4 rounded-2xl transition-all group relative border ${
                 activeSessionId === c.id 
                 ? 'bg-primary/10 border-primary/20 text-primary' 
@@ -457,16 +492,25 @@ export function AICoach() {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <header className="mb-8 flex justify-between items-start">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-primary/10">
-                  <Brain className="w-6 h-6 text-primary" />
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+                className="lg:hidden p-2 -ml-2 rounded-xl hover:bg-accent text-muted-foreground transition-colors"
+                title="Toggle History"
+              >
+                <History className="w-6 h-6" />
+              </button>
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-xl bg-primary/10">
+                    <Brain className="w-6 h-6 text-primary" />
+                  </div>
+                  <h1>AI Relationship Coach</h1>
                 </div>
-                <h1>AI Relationship Coach</h1>
+                <p className="text-muted-foreground text-sm">
+                  Empathetic guidance grounded in your shared history
+                </p>
               </div>
-              <p className="text-muted-foreground text-sm">
-                Empathetic guidance grounded in your shared history
-              </p>
             </div>
             {/* Mode Switcher */}
             <div className="bg-muted p-1 rounded-xl flex gap-1">
@@ -629,7 +673,7 @@ export function AICoach() {
                     id="chat-history-upload" 
                     type="file" 
                     className="hidden" 
-                    accept=".txt,.json" 
+                    accept=".txt,.json,.zip" 
                     onChange={handleFileSelection} 
                     disabled={uploadStatus === 'uploading'}
                   />
@@ -652,25 +696,51 @@ export function AICoach() {
                 
                 <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                    {contextUploads.map((u) => (
-                     <div key={u.id} className="flex items-center justify-between p-3 rounded-xl bg-accent/20 border border-border/50 group">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                           {u.processed ? (
-                             <Activity className="w-4 h-4 text-green-500" />
-                           ) : (
-                             <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                           )}
-                           <div className="overflow-hidden">
-                              <div className="text-xs font-medium truncate">{u.fileName}</div>
-                              <div className="text-[9px] opacity-50 uppercase tracking-tighter">{(u.fileSize / 1024).toFixed(1)} KB • {new Date(u.createdAt).toLocaleDateString()}</div>
+                      <div key={u.id} className="relative p-5 rounded-3xl bg-accent/20 border border-white/5 overflow-hidden group transition-all hover:bg-accent/30">
+                         {/* Main Content */}
+                         <div className="flex items-center justify-between relative z-10">
+                            <div className="flex items-center gap-4 overflow-hidden">
+                               <div className={`p-2.5 rounded-2xl ${u.processed ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'}`}>
+                                  {u.processed ? (
+                                    <Activity className="w-5 h-5" />
+                                  ) : (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                  )}
+                               </div>
+                               <div className="overflow-hidden">
+                                  <div className="text-sm font-semibold truncate text-white/90">{u.fileName}</div>
+                                  <div className="text-[10px] opacity-40 font-bold uppercase tracking-widest mt-0.5">
+                                    {(u.fileSize / 1024).toFixed(1)} KB • {new Date(u.createdAt).toLocaleDateString()}
+                                  </div>
+                               </div>
+                            </div>
+                            <button 
+                              onClick={() => handleDeleteContext(u.id)}
+                              className="p-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all transform hover:scale-110"
+                            >
+                               <Trash2 className="w-4 h-4" />
+                            </button>
+                         </div>
+
+                         {/* Progress Section (Full Width at Bottom) */}
+                         {!u.processed && (
+                           <div className="mt-5 space-y-2 relative z-10">
+                              <div className="flex items-center justify-between text-[10px] uppercase tracking-tighter font-black">
+                                 <span className="text-muted-foreground/60">Processing Context...</span>
+                                 <span className="text-primary tabular-nums">{u.processingProgress || 0}%</span>
+                              </div>
+                              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                 <div 
+                                   className="h-full bg-primary transition-all duration-700 ease-out shadow-[0_0_12px_rgba(var(--primary),0.4)]" 
+                                   style={{ 
+                                     width: `${u.processingProgress || 0}%`,
+                                     background: 'linear-gradient(90deg, var(--primary) 0%, #ff00ff 100%)' 
+                                   }} 
+                                 />
+                              </div>
                            </div>
-                        </div>
-                        <button 
-                          onClick={() => handleDeleteContext(u.id)}
-                          className="p-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
-                        >
-                           <Trash2 className="w-4 h-4" />
-                        </button>
-                     </div>
+                         )}
+                      </div>
                    ))}
                    {contextUploads.length === 0 && (
                      <div className="flex flex-col items-center justify-center py-8 opacity-20">

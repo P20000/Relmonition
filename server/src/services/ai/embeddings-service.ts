@@ -29,6 +29,20 @@ export async function embedText(text: string): Promise<number[]> {
 }
 
 /**
+ * Generate embeddings for multiple pieces of text in a single batch.
+ * Gemini supports up to 100 requests per batch.
+ */
+export async function batchEmbedTexts(texts: string[]): Promise<number[][]> {
+  const client = getGeminiClient();
+  const model = client.getGenerativeModel({ model: 'gemini-embedding-2-preview' });
+
+  const requests = texts.map(t => ({ content: { role: 'user', parts: [{ text: t }] } }));
+  const result = await callWithRetry(() => model.batchEmbedContents({ requests }));
+  
+  return result.embeddings.map(e => e.values);
+}
+
+/**
  * Cosine similarity between two equal-length float vectors.
  * Returns a value in [-1, 1]; higher == more similar.
  */

@@ -4,6 +4,8 @@ import { Activity, Heart, TrendingUp, Zap, BarChart3, Smile, Sparkles, Shield, S
 import { 
   LineChart, 
   Line, 
+  AreaChart,
+  Area,
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -173,6 +175,91 @@ function InteractionTrendChart({ data }: { data: any[] }) {
   );
 }
 
+// ─── Relationship History Chart ────────────────────────────────────────────────
+function RelationshipHistoryChart({ data }: { data: any[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="p-12 text-center bg-muted/5 rounded-3xl border border-dashed border-muted-foreground/10 flex flex-col items-center justify-center">
+        <TrendingUp className="w-10 h-10 mb-4 text-muted-foreground/20" />
+        <h4 className="text-sm font-semibold opacity-60">Historical Sync Pending</h4>
+        <p className="text-[10px] text-muted-foreground opacity-40 mt-1 max-w-[200px]">
+          Upload chat logs in the AI Coach to populate your historical relationship timeline.
+        </p>
+      </div>
+    );
+  }
+
+  const chartData = data.map(d => ({
+    date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }),
+    score: d.score,
+    summary: d.summary,
+    p1: d.partner1Mood,
+    p2: d.partner2Mood,
+  }));
+
+  return (
+    <div className="h-72 w-full mt-6">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="historyGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4}/>
+              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.1} />
+          <XAxis 
+            dataKey="date" 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }}
+          />
+          <YAxis 
+            domain={[0, 100]}
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }}
+          />
+          <Tooltip 
+            cursor={{ stroke: 'var(--primary)', strokeWidth: 1, strokeDasharray: '4 4' }}
+            content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                const d = payload[0].payload;
+                return (
+                  <div className="p-4 rounded-2xl shadow-2xl bg-background/95 backdrop-blur-xl border border-primary/20 max-w-[260px] animate-in zoom-in-95 duration-200">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-primary/60 mb-1">{d.date}</div>
+                    <div className="text-3xl font-black text-primary mb-2">{d.score}<span className="text-xs ml-1 opacity-40">%</span></div>
+                    <p className="text-[11px] leading-relaxed italic mb-4 text-foreground/80 font-medium">"{d.summary}"</p>
+                    <div className="flex gap-2">
+                       <div className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[9px] font-bold uppercase tracking-tighter border border-primary/20 flex items-center gap-1">
+                          <Smile className="w-3 h-3" /> {d.p1}
+                       </div>
+                       <div className="px-2.5 py-1 rounded-full bg-accent/10 text-accent text-[9px] font-bold uppercase tracking-tighter border border-accent/20 flex items-center gap-1">
+                          <Heart className="w-3 h-3" /> {d.p2}
+                       </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+          <Area 
+            type="monotone" 
+            dataKey="score" 
+            stroke="var(--primary)" 
+            strokeWidth={4}
+            fillOpacity={1}
+            fill="url(#historyGradient)"
+            dot={{ r: 4, fill: 'var(--primary)', strokeWidth: 3, stroke: 'var(--background)' }}
+            activeDot={{ r: 7, strokeWidth: 2, stroke: 'var(--background)', fill: '#ff00ff' }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export function Dashboard() {
   const { userId } = useAuth();
@@ -185,8 +272,7 @@ export function Dashboard() {
       try {
         const tenantId = localStorage.getItem('activeTenantId');
         if (!tenantId) {
-          // No tenant selected — show empty state immediately
-          setData({ lastMood: null, insights: [], recentInteractions: [] });
+          setData({ lastMood: null, insights: [], recentInteractions: [], history: [] });
           return;
         }
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -205,8 +291,9 @@ export function Dashboard() {
     fetchDashboardData();
   }, [userId]);
 
-  // ── Loading state ──────────────────────────────────────────────────────────
+  // ... (rest of loading/error states)
   if (loading) {
+// ... keep same loading skeleton
     return (
       <div className="min-h-screen p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
@@ -240,7 +327,7 @@ export function Dashboard() {
     );
   }
 
-  const { lastMood, recentInteractions, greeting, insights } = data || {};
+  const { lastMood, recentInteractions, greeting, insights, history } = data || {};
 
   // ── Detect empty state — no real data at all ───────────────────────────────
   const hasInteractions = Array.isArray(recentInteractions) && recentInteractions.length > 0;
@@ -425,6 +512,21 @@ export function Dashboard() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Relationship History (Full Width) */}
+        <div className="p-8 rounded-3xl mb-8 border border-white/5" style={{ ...glassCard, background: 'linear-gradient(180deg, color-mix(in srgb, var(--primary), transparent 97%) 0%, transparent 100%)', backdropFilter: 'blur(30px)' }}>
+           <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                 <TrendingUp className="w-8 h-8 text-primary" aria-hidden="true" />
+                 <h2>Relationship History</h2>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-tighter">
+                 <Sparkles className="w-3 h-3" /> AI Derived Timeline
+              </div>
+           </div>
+           <p className="text-muted-foreground mb-6 text-sm">Long-term wellness trends extracted from your deep chat archives.</p>
+           <RelationshipHistoryChart data={history || []} />
         </div>
       </div>
     </div>

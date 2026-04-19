@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ----------------------------------------------------
 // CORE IDENTITY LAYER
@@ -112,6 +112,7 @@ export const chatUploads = sqliteTable('chat_uploads', {
   fileContent: text('file_content').notNull(),
   fileSize: integer('file_size').notNull(),
   processed: integer('processed', { mode: 'boolean' }).default(false),
+  processingProgress: integer('processing_progress').default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 export const aiProviderConfigs = sqliteTable('ai_provider_configs', {
@@ -145,3 +146,16 @@ export const coachMessages = sqliteTable('coach_messages', {
   content: text('content').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
+
+export const relationshipHealthHistory = sqliteTable('relationship_health_history', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // Format: YYYY-MM-DD (typically Sunday of the week)
+  score: integer('score').notNull(), // 0-100
+  partner1Mood: text('partner1_mood'),
+  partner2Mood: text('partner2_mood'),
+  summary: text('summary'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+}, (table) => ({
+  tenantDateIdx: uniqueIndex('tenant_date_idx').on(table.tenantId, table.date),
+}));

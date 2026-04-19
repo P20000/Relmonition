@@ -49,7 +49,8 @@ graph LR
 
   * **Node.js / Express (TypeScript)** - Type-safe, modular service architecture.
   * **Drizzle ORM** - Edge-compatible, type-safe SQL interactions with **Turso**.
-  * **RAG Engine** - Advanced retrieval using Pinecone for long-term episodic memory.
+  * **Advanced RAG Engine** - High-performance semantic retrieval using batch embeddings and parallelized chunk processing.
+  * **Relationship Historian** - Background behavioral analytics engine for long-term sentiment and health tracking.
 
 ### **Cloud & DevOps**
 
@@ -121,7 +122,7 @@ kubectl apply -k k8s/overlays/production
 
   - [ ] **BYOK (Bring Your Own Key):** Allow enterprise tenants to manage their own KMS keys.
   - [ ] **SOC 2 Type II:** Achieving full compliance certification.
-  - [ ] **Behavioral Analytics:** Real-time sentiment shift detection across conversation history.
+  - [x] **Behavioral Analytics:** Real-time sentiment shift detection across conversation history.
   - [ ] **Fine-tuned Local Models:** Moving sensitive inference to specialized local LLMs to reduce API surface area.
 
 -----

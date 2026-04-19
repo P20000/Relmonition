@@ -4,6 +4,7 @@ import * as schema from '../db/schema';
 import crypto from 'crypto';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { queryRelationshipMemoryStream, processChatUpload } from '../services/ai/rag-service';
+import AdmZip from 'adm-zip';
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -203,48 +204,76 @@ export const uploadChatHistory = async (req: Request, res: Response) => {
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
     // 1. If strategy is 'replace', wipe existing context for this tenant
+    // (We do this once at the start of the upload session)
     if (strategy === 'replace') {
       console.log(`[Coach] Executing 'replace' strategy for tenant ${tenantId}`);
-      
-      // Get all upload IDs to delete their embeddings
       const existingUploads = await db.select({ id: schema.chatUploads.id })
         .from(schema.chatUploads)
         .where(eq(schema.chatUploads.tenantId, tenantId));
       
       const uploadIds = existingUploads.map(u => u.id);
-      
       if (uploadIds.length > 0) {
-        // Delete embeddings (manual cascade for safety, though schema has it)
         await db.delete(schema.embeddings).where(inArray(schema.embeddings.chatUploadId, uploadIds));
-        // Delete uploads
         await db.delete(schema.chatUploads).where(eq(schema.chatUploads.tenantId, tenantId));
       }
     }
 
-    // 2. Insert new record
-    const uploadId = crypto.randomUUID();
-    await db.insert(schema.chatUploads).values({
-      id: uploadId,
-      tenantId,
-      userId,
-      fileName,
-      fileContent,
-      fileSize,
-      processed: false,
-      createdAt: new Date(),
-    });
+    // 2. Handle ZIP Extraction or Direct Upload
+    const filesToProcess: { name: string; content: string; size: number }[] = [];
 
-    // 3. Trigger background processing (chunking/embedding)
-    // We don't await this so the user gets a fast response
-    processChatUpload(tenantId, uploadId, fileContent).catch(err => {
-      console.error(`[Coach Process Error] ${uploadId}:`, err);
-    });
+    if (fileName.toLowerCase().endsWith('.zip')) {
+      console.log(`[Coach] Extracting ZIP: ${fileName}`);
+      const zip = new AdmZip(Buffer.from(fileContent, 'base64'));
+      const zipEntries = zip.getEntries();
+
+      for (const entry of zipEntries) {
+        // Strictly only .txt files as requested
+        if (!entry.isDirectory && entry.entryName.toLowerCase().endsWith('.txt')) {
+          const content = entry.getData().toString('utf8');
+          filesToProcess.push({
+            name: entry.entryName,
+            content: content,
+            size: entry.header.size
+          });
+        }
+      }
+      
+      if (filesToProcess.length === 0) {
+        return res.status(400).json({ error: 'No .txt files found in the ZIP archive.' });
+      }
+    } else {
+      filesToProcess.push({ name: fileName, content: fileContent, size: fileSize });
+    }
+
+    // 3. Process each file (as fragments)
+    const processedIds: string[] = [];
+
+    for (const file of filesToProcess) {
+      const uploadId = crypto.randomUUID();
+      await db.insert(schema.chatUploads).values({
+        id: uploadId,
+        tenantId,
+        userId,
+        fileName: file.name,
+        fileContent: file.content,
+        fileSize: file.size,
+        processed: false,
+        createdAt: new Date(),
+      });
+
+      // Trigger background processing
+      processChatUpload(tenantId, uploadId, file.content).catch(err => {
+        console.error(`[Coach Process Error] ${uploadId}:`, err);
+      });
+      
+      processedIds.push(uploadId);
+    }
 
     res.status(201).json({ 
-      message: strategy === 'replace' 
-        ? 'Context replaced and processing started.' 
-        : 'Context appended and processing started.', 
-      uploadId 
+      message: fileName.toLowerCase().endsWith('.zip')
+        ? `ZIP extracted: ${filesToProcess.length} .txt fragments ingested.`
+        : 'Context ingested and processing started.', 
+      uploadIds: processedIds 
     });
   } catch (error: any) {
     console.error('[Coach Controller] Upload Error:', error);
@@ -264,6 +293,7 @@ export const getUploadStatus = async (req: Request, res: Response) => {
       fileName: u.fileName,
       fileSize: u.fileSize,
       processed: u.processed,
+      processingProgress: u.processingProgress || 0,
       createdAt: u.createdAt
     })));
   } catch (error: any) {
