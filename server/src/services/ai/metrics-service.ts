@@ -50,10 +50,14 @@ export async function processJournalMetrics(
 }
 
 async function analyzeBehavioralMetrics(provider: any, content: string): Promise<BehavioralAnalysis> {
-  const systemInstruction = "You are a relationship metrics analyzer using the Gottman Method.";
+  const systemInstruction = "You are a relationship metrics analyzer using the Gottman Method. Be highly observational and detect even subtle bids for connection.";
   const prompt = `
     Analyze this relationship journal entry using the Gottman Method framework.
     Identify connections, repairs, and conflict indicators.
+    
+    CRITICAL INSTRUCTION:
+    Be liberal in detecting "Bids for Connection". Any attempt to share a thought, feeling, or request for attention (even small ones like "Look at this bird") is a bid.
+    Be specific with the "score" to show nuance (e.g., 0.15, -0.2). Avoid returning exactly 0 unless truly devoid of emotion.
     
     Return a JSON object with:
     - score: float between -1.0 (conflict) and 1.0 (appreciation)
@@ -94,6 +98,9 @@ async function updateInteractionMetrics(db: any, tenantId: string, analysis: Beh
   const metricDate = targetDate ? new Date(targetDate) : new Date();
   metricDate.setHours(0, 0, 0, 0);
 
+  // Convert analysis.score (-1 to 1) to 0-100 scale for trend variation
+  const currentSentiment = Math.round((analysis.score + 1) * 50);
+
   // Check if we have a row for today
   const existing = await db.select()
     .from(schema.interactionMetrics)
@@ -105,13 +112,18 @@ async function updateInteractionMetrics(db: any, tenantId: string, analysis: Beh
 
   if (existing.length > 0) {
     const row = existing[0];
+    const newTotalEntries = (row.totalEntries || 0) + 1;
+    const newAvgSentiment = Math.round(((row.averageSentiment || 50) * (row.totalEntries || 0) + currentSentiment) / newTotalEntries);
+
     await db.update(schema.interactionMetrics)
       .set({
         positiveCount: analysis.score > 0 ? (row.positiveCount || 0) + 1 : row.positiveCount,
         negativeCount: analysis.score < 0 ? (row.negativeCount || 0) + 1 : row.negativeCount,
         bidsCount: (row.bidsCount || 0) + analysis.bidsCount,
         repairsCount: (row.repairsCount || 0) + analysis.repairsCount,
-        conflictScore: Math.max(row.conflictScore || 0, analysis.conflictScore)
+        conflictScore: Math.max(row.conflictScore || 0, analysis.conflictScore),
+        averageSentiment: newAvgSentiment,
+        totalEntries: newTotalEntries
       })
       .where(eq(schema.interactionMetrics.id, row.id));
   } else {
@@ -124,6 +136,8 @@ async function updateInteractionMetrics(db: any, tenantId: string, analysis: Beh
       bidsCount: analysis.bidsCount,
       repairsCount: analysis.repairsCount,
       conflictScore: analysis.conflictScore,
+      averageSentiment: currentSentiment,
+      totalEntries: 1,
     });
   }
 }
@@ -243,53 +257,64 @@ function extractWeeklyWindows(chatContent: string): Map<string, string[]> {
   const dateRegex = /^(?:\[)?(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/;
 
   const now = new Date();
-  const minDate = new Date('2015-01-01');
+  let formatType = -1; // Auto-detect format
 
-  // Format tracking: -1 for unknown, 0 for MM/DD, 1 for DD/MM
-  let formatType = -1; 
+  const validDates: Array<{ date: Date; line: string }> = [];
 
+  // Pass 1: Extract all valid dates
   for (const line of lines) {
     const match = line.trim().match(dateRegex);
-    if (match) {
-      try {
-        const seg1 = parseInt(match[1]);
-        const seg2 = parseInt(match[2]);
-        const year = match[3];
+    if (!match) continue;
 
-        // Auto-detect format if not yet known
-        if (formatType === -1) {
-          if (seg1 > 12) formatType = 1; // Must be DD/MM
-          else if (seg2 > 12) formatType = 0; // Must be MM/DD
-        }
+    try {
+      const seg1 = parseInt(match[1]);
+      const seg2 = parseInt(match[2]);
+      const year = match[3].length === 2 ? `20${match[3]}` : match[3];
 
-        // Construct date string based on detected or default (US) format
-        const dateStr = formatType === 1 
-          ? `${match[2]}/${match[1]}/${year}` // Convert DD/MM to MM/DD for JS Date
-          : `${match[1]}/${match[2]}/${year}`;
+      if (formatType === -1) {
+        if (seg1 > 12) formatType = 1; // DD/MM
+        else if (seg2 > 12) formatType = 0; // MM/DD
+      }
 
-        const parsedDate = new Date(dateStr);
-        
-        // Sanity Check: Must be valid and within range
-        if (isNaN(parsedDate.getTime()) || parsedDate < minDate || parsedDate > now) {
-          continue;
-        }
+      const dateStr = formatType === 1 
+        ? `${match[2]}/${match[1]}/${year}` 
+        : `${match[1]}/${match[2]}/${year}`;
 
-        // Immutable calculation of Sunday
-        const day = parsedDate.getDay();
-        const diff = parsedDate.getDate() - day;
-        const sunday = new Date(parsedDate);
-        sunday.setDate(diff); // Use a clone to avoid mutating original parsedDate for filter safety
-        sunday.setHours(0, 0, 0, 0);
-        
-        const weekKey = sunday.toISOString().split('T')[0];
-        
-        if (!weeks.has(weekKey)) weeks.set(weekKey, []);
-        if (weeks.get(weekKey)!.length < 40) {
-          weeks.get(weekKey)!.push(line);
-        }
-      } catch (e) { /* skip */ }
+      const parsedDate = new Date(dateStr);
+      
+      if (!isNaN(parsedDate.getTime()) && parsedDate <= now) {
+        validDates.push({ date: parsedDate, line });
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  if (validDates.length === 0) return weeks;
+
+  // Pass 2: Bucket into Sunday-indexed weeks
+  for (const item of validDates) {
+    const d = new Date(item.date);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    const sunday = new Date(d);
+    sunday.setDate(diff);
+    sunday.setHours(0, 0, 0, 0);
+    
+    const weekKey = sunday.toISOString().split('T')[0];
+    
+    if (!weeks.has(weekKey)) weeks.set(weekKey, []);
+    if (weeks.get(weekKey)!.length < 60) {
+      weeks.get(weekKey)!.push(item.line);
     }
   }
+
+  // Pass 3: Concise the range by removing low-density outliers (system logs, etc.)
+  // We keep only weeks that have at least 5 lines of interaction.
+  for (const [weekKey, weekLines] of weeks.entries()) {
+    if (weekLines.length < 5) {
+      weeks.delete(weekKey);
+    }
+  }
+
   return weeks;
 }
 

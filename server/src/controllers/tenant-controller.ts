@@ -116,15 +116,19 @@ export const getDashboardData = async (req: Request, res: Response) => {
       db.select().from(schema.aiInsights).where(eq(schema.aiInsights.tenantId, tid)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
       db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.tenantId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(14),
       generateDynamicGreeting(userName, tid),
-      db.select().from(schema.relationshipHealthHistory).where(eq(schema.relationshipHealthHistory.tenantId, tid)).orderBy(asc(schema.relationshipHealthHistory.date)).limit(52)
+      db.select().from(schema.relationshipHealthHistory).where(eq(schema.relationshipHealthHistory.tenantId, tid)).orderBy(asc(schema.relationshipHealthHistory.date)).limit(200)
     ]);
 
     // --- Smart Sync Logic ---
     // 1. Journal Backfill (Metrics & Pulse)
-    if (insights.length === 0 && interaction.length === 0) {
+    // Trigger if no data OR if we detect old data format (totalEntries is missing)
+    const needsInitialBackfill = insights.length === 0 && interaction.length === 0;
+    const needsFormatUpdate = interaction.length > 0 && interaction.some((i: any) => i.totalEntries === null || i.totalEntries === 0);
+
+    if (needsInitialBackfill || needsFormatUpdate) {
       const journalCount = await db.select({ count: sql<number>`count(*)` }).from(schema.journalEntries).where(eq(schema.journalEntries.tenantId, tid));
       if (journalCount[0]?.count > 0) {
-        console.log(`[SmartSync] Triggering initial backfill for tenant ${tid}`);
+        console.log(`[SmartSync] Triggering ${needsFormatUpdate ? 'migration' : 'initial'} metrics backfill for tenant ${tid}`);
         import('../utils/backfill-metrics').then(m => m.backfillTenantMetrics(tid)).catch(err => {
           console.error(`[SmartSync] Backfill trigger failed:`, err);
         });

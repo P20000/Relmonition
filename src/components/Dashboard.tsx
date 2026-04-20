@@ -117,14 +117,24 @@ function InteractionTrendChart({ data }: { data: any[] }) {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .map(d => ({
       date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      Positive: d.positiveCount || 0,
-      Negative: d.negativeCount || 0,
+      Bids: d.bidsCount || 0,
+      Repairs: d.repairsCount || 0,
     }));
 
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="bidsGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+            </linearGradient>
+            <linearGradient id="repairsGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#4ade80" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.2} />
           <XAxis 
             dataKey="date" 
@@ -139,7 +149,8 @@ function InteractionTrendChart({ data }: { data: any[] }) {
           />
           <Tooltip 
             contentStyle={{ 
-              background: 'var(--background)', 
+              background: 'var(--background/95)', 
+              backdropFilter: 'blur(10px)',
               border: '1px solid var(--border)', 
               borderRadius: '12px',
               fontSize: '12px',
@@ -153,23 +164,27 @@ function InteractionTrendChart({ data }: { data: any[] }) {
             iconType="circle"
             wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
           />
-          <Line 
+          <Area 
             type="monotone" 
-            dataKey="Positive" 
+            dataKey="Bids" 
             stroke="var(--primary)" 
             strokeWidth={3}
+            fillOpacity={1}
+            fill="url(#bidsGradient)"
             dot={{ r: 4, fill: 'var(--primary)', strokeWidth: 2, stroke: 'var(--background)' }}
             activeDot={{ r: 6, strokeWidth: 0 }}
           />
-          <Line 
+          <Area 
             type="monotone" 
-            dataKey="Negative" 
-            stroke="var(--destructive)" 
+            dataKey="Repairs" 
+            stroke="#4ade80" 
             strokeWidth={3}
-            dot={{ r: 4, fill: 'var(--destructive)', strokeWidth: 2, stroke: 'var(--background)' }}
+            fillOpacity={1}
+            fill="url(#repairsGradient)"
+            dot={{ r: 4, fill: '#4ade80', strokeWidth: 2, stroke: 'var(--background)' }}
             activeDot={{ r: 6, strokeWidth: 0 }}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );
@@ -189,13 +204,15 @@ function RelationshipHistoryChart({ data }: { data: any[] }) {
     );
   }
 
-  const chartData = data.map(d => ({
-    date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }),
-    score: d.score,
-    summary: d.summary,
-    p1: d.partner1Mood,
-    p2: d.partner2Mood,
-  }));
+  const chartData = data
+    .filter(d => d.summary !== 'Analysis pending.')
+    .map(d => ({
+      date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }),
+      score: d.score,
+      summary: d.summary,
+      p1: d.partner1Mood,
+      p2: d.partner2Mood,
+    }));
 
   return (
     <div className="h-72 w-full mt-6">

@@ -83,6 +83,8 @@ export const interactionMetrics = sqliteTable('interaction_metrics', {
   bidsCount: integer('bids_count').default(0),
   repairsCount: integer('repairs_count').default(0),
   conflictScore: integer('conflict_score').default(0),
+  averageSentiment: integer('average_sentiment').default(50), // 0-100 scale
+  totalEntries: integer('total_entries').default(0),
   date: integer('date', { mode: 'timestamp' }).notNull(), // Daily aggregate
 });
 
