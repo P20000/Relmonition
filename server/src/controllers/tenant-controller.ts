@@ -116,7 +116,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
       db.select().from(schema.aiInsights).where(eq(schema.aiInsights.tenantId, tid)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
       db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.tenantId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(14),
       generateDynamicGreeting(userName, tid),
-      db.select().from(schema.relationshipHealthHistory).where(eq(schema.relationshipHealthHistory.tenantId, tid)).orderBy(asc(schema.relationshipHealthHistory.date)).limit(200)
+      db.select().from(schema.relationshipHealthHistory).where(eq(schema.relationshipHealthHistory.tenantId, tid)).orderBy(desc(schema.relationshipHealthHistory.date)).limit(200)
     ]);
 
     // --- Smart Sync Logic ---

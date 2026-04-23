@@ -109,7 +109,7 @@ export const createEntry = async (req: Request, res: Response) => {
         console.error(`[Journal] Failed to embed entry ${entryId}:`, err);
     });
 
-    processJournalMetrics(tenantId, entryId, content).catch(err => {
+    processJournalMetrics(tenantId, entryId, content, new Date(date)).catch(err => {
         console.error(`[Journal] Failed to process metrics for ${entryId}:`, err);
     });
 

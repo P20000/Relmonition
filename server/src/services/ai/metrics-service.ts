@@ -282,7 +282,9 @@ function extractWeeklyWindows(chatContent: string): Map<string, string[]> {
 
       const parsedDate = new Date(dateStr);
       
-      if (!isNaN(parsedDate.getTime()) && parsedDate <= now) {
+      // Allow dates in the past and up to 1 year in the future (for demo logs/testing)
+      const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+      if (!isNaN(parsedDate.getTime()) && parsedDate <= oneYearFromNow) {
         validDates.push({ date: parsedDate, line });
       }
     } catch (e) { /* skip */ }
