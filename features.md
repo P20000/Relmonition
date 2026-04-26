@@ -57,8 +57,11 @@ The intelligence layer that turns reflections into relationship growth.
 
 ### 3.2 The AI Coach
 - **Context-Aware Chat**: A dedicated interface to ask questions about your relationship (e.g., "Why have we been feeling distant lately?").
+- **Rich Markdown Formatting**: Full support for bold, italics, bullet points, and code blocks in AI responses for high readability.
+- **Smart Generation Controls**: Ability to stop generation in real-time, even during the "Thinking" phase.
+- **Thinking Indicator**: Premium animated typing indicator with pulsing dots and breathing text.
+- **Glass-morphism Layout**: Unified, centered dashboard layout with fixed history sidebars and beautified custom scrollbars.
 - **Chat Management**: Ability to delete conversations and clear chat history securely.
-- **Glass-morphism UI**: Modern, interactive sidebar with real-time feedback and session persistence.
 
 ---
 

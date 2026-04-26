@@ -442,7 +442,7 @@ export function AICoach() {
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
 
   return (
-    <div className="min-h-screen bg-background flex justify-center">
+    <div className="min-h-screen bg-transparent flex justify-center">
       <div className="w-full max-w-[1600px] flex relative">
       {/* Strategy Choice Modal */}
       {showStrategyModal && (
