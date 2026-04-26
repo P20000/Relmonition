@@ -10,6 +10,7 @@ import { apiClient } from '../../api-client';
 import { useAuth } from '../context/AuthContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type CoachMode = 'retrieval' | 'exploration';
 type Message = {
@@ -37,6 +38,37 @@ type ContextUpload = {
 
 export function AICoach() {
   const { activeTenantId, userId } = useAuth();
+  
+  const ThinkingIndicator = () => (
+    <div className="flex items-center gap-2 py-1">
+      <div className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <motion.div
+            key={i}
+            className="w-1.5 h-1.5 bg-primary rounded-full"
+            animate={{ 
+              y: [0, -4, 0],
+              opacity: [0.4, 1, 0.4]
+            }}
+            transition={{ 
+              duration: 0.8, 
+              repeat: Infinity, 
+              delay: i * 0.15 
+            }}
+          />
+        ))}
+      </div>
+      <motion.span 
+        initial={{ opacity: 0.4 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1, repeat: Infinity, repeatType: 'reverse' }}
+        className="text-xs font-medium text-muted-foreground"
+      >
+        Thinking...
+      </motion.span>
+    </div>
+  );
+
   const [mode, setMode] = useState<CoachMode>('retrieval');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -604,20 +636,24 @@ export function AICoach() {
                               </div>
                            </div>
                         ) : (
-                          <ReactMarkdown 
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              p: ({children}) => <p className="mb-3 last:mb-0">{children}</p>,
-                              ul: ({children}) => <ul className="list-disc ml-4 mb-3 space-y-1">{children}</ul>,
-                              ol: ({children}) => <ol className="list-decimal ml-4 mb-3 space-y-1">{children}</ol>,
-                              li: ({children}) => <li>{children}</li>,
-                              strong: ({children}) => <span className="font-bold text-inherit">{children}</span>,
-                              code: ({children}) => <code className="bg-black/10 dark:bg-white/10 px-1 rounded text-xs">{children}</code>,
-                              blockquote: ({children}) => <blockquote className="border-l-4 border-primary/30 pl-4 italic my-2">{children}</blockquote>
-                            }}
-                          >
-                            {message.content}
-                          </ReactMarkdown>
+                          message.content === '' && message.timestamp === 'Thinking...' ? (
+                            <ThinkingIndicator />
+                          ) : (
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                p: ({children}) => <p className="mb-3 last:mb-0">{children}</p>,
+                                ul: ({children}) => <ul className="list-disc ml-4 mb-3 space-y-1">{children}</ul>,
+                                ol: ({children}) => <ol className="list-decimal ml-4 mb-3 space-y-1">{children}</ol>,
+                                li: ({children}) => <li>{children}</li>,
+                                strong: ({children}) => <span className="font-bold text-inherit">{children}</span>,
+                                code: ({children}) => <code className="bg-black/10 dark:bg-white/10 px-1 rounded text-xs">{children}</code>,
+                                blockquote: ({children}) => <blockquote className="border-l-4 border-primary/30 pl-4 italic my-2">{children}</blockquote>
+                              }}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                          )
                         )}
                       </div>
 
