@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { apiClient } from '../../api-client';
+import { getUserTenants } from '../../lib/tenants';
 
 interface AuthContextType {
   token: string | null;
@@ -44,6 +45,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setActiveTenantIdState(savedTenantId);
     setIsLoaded(true);
 
+    // Auto-select tenant if missing but user is logged in
+    if (savedToken && savedUserId && !savedTenantId) {
+      getUserTenants(savedUserId).then(tenants => {
+        if (tenants.length > 0) {
+          setActiveTenantId(tenants[0].id);
+        }
+      });
+    }
+
     // Sync profile if missing but token exists
     if (savedToken && (!savedEmail || !savedAccountType)) {
       apiClient.getMe(savedToken).then(data => {
@@ -55,6 +65,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setEmail(data.email);
         setNameState(data.name);
         setAccountType(data.accountType);
+
+        // Also check tenants here if still missing
+        if (!savedTenantId) {
+          getUserTenants(data.userId).then(tenants => {
+            if (tenants.length > 0) {
+              setActiveTenantId(tenants[0].id);
+            }
+          });
+        }
       }).catch(err => {
         console.error('Failed to sync profile:', err);
         // If token is invalid, log out
@@ -76,6 +95,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setEmail(newEmail);
     setNameState(newName);
     setAccountType(newAccountType);
+
+    // Auto-select first tenant on login
+    getUserTenants(newUserId).then(tenants => {
+      if (tenants.length > 0) {
+        setActiveTenantId(tenants[0].id);
+      }
+    });
   };
 
   const setName = (newName: string) => {
