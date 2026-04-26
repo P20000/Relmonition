@@ -677,7 +677,7 @@ export function AICoach() {
                         </div>
                       )}
 
-                      {message.timestamp && (
+                      {message.timestamp && message.timestamp !== 'Thinking...' && (
                         <div className="mt-3 text-[10px] opacity-60 flex items-center gap-1 font-medium uppercase tracking-wider">
                           <Clock className="w-3 h-3" />
                           {message.timestamp}
