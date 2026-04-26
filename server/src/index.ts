@@ -8,6 +8,7 @@ import ragRoutes from './routes/rag-routes';
 import journalRoutes from './routes/journal-routes';
 import coachRoutes from './routes/coach-routes';
 import aiConfigRoutes from './routes/ai-config-routes';
+import profileRoutes from './routes/profile-routes';
 import { getDashboardData } from './controllers/tenant-controller';
 
 dotenv.config();
@@ -28,6 +29,7 @@ app.use('/api/v1/tenant', tenantRoutes);
 app.use('/api/v1/rag', ragRoutes);
 app.use('/api/v1/journal', journalRoutes);
 app.use('/api/v1/coach', coachRoutes);
+app.use('/api/v1/profiles', profileRoutes);
 app.use('/api/v1/tenant/:tenantId/ai-configs', aiConfigRoutes);
 app.get('/api/v1/dashboard/:tenantId', getDashboardData);
 

@@ -161,3 +161,31 @@ export const relationshipHealthHistory = sqliteTable('relationship_health_histor
 }, (table) => ({
   tenantDateIdx: uniqueIndex('tenant_date_idx').on(table.tenantId, table.date),
 }));
+
+// ----------------------------------------------------
+// PERSONALITY & COMPATIBILITY MODELS
+// ----------------------------------------------------
+
+export const partnerProfiles = sqliteTable('partner_profiles', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull(),
+  traits: text('traits').notNull().default('[]'), // JSON array string
+  likes: text('likes').notNull().default('[]'),
+  dislikes: text('dislikes').notNull().default('[]'),
+  communicationStyle: text('communication_style'),
+  triggersAndTraumas: text('triggers_and_traumas').notNull().default('[]'),
+  lastSyncedJournalCount: integer('last_synced_journal_count').default(0),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+}, (table) => ({
+  tenantUserIdx: uniqueIndex('tenant_user_idx').on(table.tenantId, table.userId),
+}));
+
+export const compatibilityInsights = sqliteTable('compatibility_insights', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().unique().references(() => tenants.id, { onDelete: 'cascade' }),
+  compatibilityPercentage: integer('compatibility_percentage').notNull().default(0),
+  summary: text('summary').notNull(),
+  growthOpportunities: text('growth_opportunities').notNull().default('[]'), // JSON array string
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});

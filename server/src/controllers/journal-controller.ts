@@ -5,6 +5,7 @@ import { eq, desc, and, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { embedAndStoreJournalEntry } from '../services/ai/rag-service';
 import { processJournalMetrics } from '../services/ai/metrics-service';
+import { checkAndSyncProfiles } from '../services/ai/profile-service';
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -111,6 +112,10 @@ export const createEntry = async (req: Request, res: Response) => {
 
     processJournalMetrics(tenantId, entryId, content, new Date(date)).catch(err => {
         console.error(`[Journal] Failed to process metrics for ${entryId}:`, err);
+    });
+    
+    checkAndSyncProfiles(tenantId).catch(err => {
+        console.error(`[Journal] Failed to check/sync profiles:`, err);
     });
 
     res.status(existingEntries.length > 0 ? 200 : 201).json({ 
