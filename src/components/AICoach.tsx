@@ -463,7 +463,7 @@ export function AICoach() {
 
       {/* Sidebar: Conversations */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-80 overflow-y-auto p-6 transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:block lg:m-6 lg:rounded-[2rem] lg:h-[calc(100vh-3rem)] border border-white/10 shadow-2xl ${
+        className={`fixed inset-y-0 left-0 z-50 w-80 overflow-y-auto p-6 transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:block lg:m-6 lg:rounded-[2rem] lg:h-[calc(100vh-3rem)] border border-white/10 shadow-2xl custom-scrollbar ${
           isHistoryOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(30px)' }}
@@ -571,7 +571,7 @@ export function AICoach() {
           >
             <div 
               ref={chatContainerRef}
-              className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth"
+              className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth custom-scrollbar"
             >
               {messages.map((message, index) => {
                 const isLastPrompt = message.role === 'user' && message.content === lastUserMessage?.content;
