@@ -55,7 +55,7 @@ export function AICoach() {
   const [uploadError, setUploadError] = useState('');
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const isUpdatingFromStream = useRef(false);
 
   const glassCard = {
@@ -90,7 +90,12 @@ export function AICoach() {
   }, [activeSessionId]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   }, [messages]);
 
   const loadConversations = async () => {
@@ -564,7 +569,10 @@ export function AICoach() {
             className="rounded-3xl overflow-hidden mb-6 flex flex-col h-[650px]"
             style={glassCard}
           >
-            <div className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth">
+            <div 
+              ref={chatContainerRef}
+              className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth"
+            >
               {messages.map((message, index) => {
                 const isLastPrompt = message.role === 'user' && message.content === lastUserMessage?.content;
                 
@@ -643,7 +651,7 @@ export function AICoach() {
                   </div>
                 );
               })}
-              <div ref={chatEndRef} />
+              {/* Removed chatEndRef div to rely on container scroll */}
             </div>
 
             {/* Input Footer */}
