@@ -563,8 +563,8 @@ export function AICoach() {
       </aside>
 
       {/* Main Chat Area */}
-      <main className="flex-1 p-4 md:p-8 lg:ml-80 overflow-x-hidden">
-        <div className="max-w-4xl mx-auto">
+      <main className="flex-1 p-4 md:p-8 lg:pl-80 overflow-x-hidden">
+        <div className="max-w-5xl ml-4 lg:ml-12">
           {/* Header */}
           <header className="mb-8 flex justify-between items-start">
             <div className="flex items-center gap-3">
