@@ -96,8 +96,9 @@ export const streamChat = async (req: Request, res: Response) => {
     }
 
     // 2. Save User Message
+    const userMessageId = crypto.randomUUID();
     await db.insert(schema.coachMessages).values({
-      id: crypto.randomUUID(),
+      id: userMessageId,
       conversationId: sessionId,
       role: 'user',
       content: query,
@@ -110,8 +111,22 @@ export const streamChat = async (req: Request, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
 
     // Handle abrupt disconnection
+    let isFinished = false;
     const abortController = new AbortController();
-    req.on('close', () => abortController.abort());
+    
+    req.on('close', async () => {
+      abortController.abort();
+      if (!isFinished) {
+        try {
+          // If generation didn't finish, remove the "orphaned" user message
+          const { client: cleanupDb } = await tenantManager.getDatabaseClient(tenantId);
+          await cleanupDb.delete(schema.coachMessages).where(eq(schema.coachMessages.id, userMessageId));
+          console.log(`[Coach] Cleaned up aborted message: ${userMessageId}`);
+        } catch (e) {
+          console.error('[Coach] Cleanup failed:', e);
+        }
+      }
+    });
 
     // 4. Stream response
     let fullContent = '';
@@ -134,6 +149,7 @@ export const streamChat = async (req: Request, res: Response) => {
         content: fullContent,
         createdAt: new Date(),
       });
+      isFinished = true;
     }
 
     res.write('event: end\ndata: done\n\n');
