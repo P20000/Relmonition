@@ -442,7 +442,8 @@ export function AICoach() {
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen bg-background flex justify-center">
+      <div className="w-full max-w-[1600px] flex relative">
       {/* Strategy Choice Modal */}
       {showStrategyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-300">
@@ -503,7 +504,7 @@ export function AICoach() {
 
       {/* Sidebar: Conversations */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-80 overflow-y-auto p-6 transition-all duration-300 ease-in-out lg:translate-x-0 lg:fixed lg:left-6 lg:top-24 lg:bottom-6 lg:block lg:rounded-[2rem] border border-white/10 shadow-2xl custom-scrollbar ${
+        className={`fixed inset-y-0 left-0 z-50 w-80 overflow-y-auto p-6 transition-all duration-300 ease-in-out lg:translate-x-0 lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] lg:block lg:rounded-[2rem] border border-white/10 shadow-2xl custom-scrollbar ${
           isHistoryOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(30px)' }}
@@ -563,8 +564,8 @@ export function AICoach() {
       </aside>
 
       {/* Main Chat Area */}
-      <main className="flex-1 p-4 md:p-8 lg:pl-80 overflow-x-hidden">
-        <div className="max-w-5xl ml-4 lg:ml-12">
+      <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
+        <div className="max-w-5xl">
           {/* Header */}
           <header className="mb-8 flex justify-between items-start">
             <div className="flex items-center gap-3">
