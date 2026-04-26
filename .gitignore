@@ -54,3 +54,6 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# Docs
+calc.md

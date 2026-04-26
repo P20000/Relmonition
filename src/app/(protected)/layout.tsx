@@ -33,9 +33,10 @@ export default function ProtectedLayout({
   const activeView = pathname.includes('dashboard') ? 'dashboard' :
                      pathname.includes('journal') ? 'journal' :
                      pathname.includes('coach') ? 'coach' :
+                     pathname.includes('personality') ? 'personality' :
                      pathname.includes('settings') ? 'settings' : 'dashboard';
 
-  const handleNavigate = (view: 'dashboard' | 'journal' | 'coach' | 'settings') => {
+  const handleNavigate = (view: 'dashboard' | 'journal' | 'coach' | 'settings' | 'personality') => {
     router.push(`/${view}`);
   };
 

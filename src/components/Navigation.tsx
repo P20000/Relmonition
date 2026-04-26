@@ -1,11 +1,11 @@
 "use client";
-import { Heart, BookOpen, Brain, Menu, X, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { Heart, BookOpen, Brain, Menu, X, LogOut, Settings as SettingsIcon, User } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 type NavigationProps = {
-  activeView: 'dashboard' | 'journal' | 'coach' | 'settings';
-  onNavigate: (view: 'dashboard' | 'journal' | 'coach' | 'settings') => void;
+  activeView: 'dashboard' | 'journal' | 'coach' | 'settings' | 'personality';
+  onNavigate: (view: 'dashboard' | 'journal' | 'coach' | 'settings' | 'personality') => void;
 };
 
 export function Navigation({ activeView, onNavigate }: NavigationProps) {
@@ -16,6 +16,7 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
     { id: 'dashboard' as const, label: 'Dashboard', icon: Heart },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
     { id: 'coach' as const, label: 'AI Coach', icon: Brain },
+    { id: 'personality' as const, label: 'Personality', icon: User },
     { id: 'settings' as const, label: 'Settings', icon: SettingsIcon },
 
   ];
