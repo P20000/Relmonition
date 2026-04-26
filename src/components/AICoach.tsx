@@ -503,7 +503,7 @@ export function AICoach() {
 
       {/* Sidebar: Conversations */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-80 overflow-y-auto p-6 transition-all duration-300 ease-in-out lg:translate-x-0 lg:sticky lg:top-24 lg:block lg:ml-6 lg:mb-6 lg:rounded-[2rem] lg:h-[750px] border border-white/10 shadow-2xl custom-scrollbar ${
+        className={`fixed inset-y-0 left-0 z-50 w-80 overflow-y-auto p-6 transition-all duration-300 ease-in-out lg:translate-x-0 lg:fixed lg:left-6 lg:top-24 lg:bottom-6 lg:block lg:rounded-[2rem] border border-white/10 shadow-2xl custom-scrollbar ${
           isHistoryOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(30px)' }}
@@ -563,8 +563,8 @@ export function AICoach() {
       </aside>
 
       {/* Main Chat Area */}
-      <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
-        <div className="max-w-4xl">
+      <main className="flex-1 p-4 md:p-8 lg:ml-80 overflow-x-hidden">
+        <div className="max-w-4xl mx-auto">
           {/* Header */}
           <header className="mb-8 flex justify-between items-start">
             <div className="flex items-center gap-3">
