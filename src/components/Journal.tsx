@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { Sparkles, Lock, Eye, Send, Loader2, Calendar, BookOpen } from 'lucide-react';
+import { Sparkles, Lock, Eye, Send, Loader2, Calendar, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { apiClient } from '../../api-client';
 import {
     Dialog,
@@ -41,7 +41,38 @@ export function Journal({ userId, tenantId }: JournalProps) {
     const [loadingHeader, setLoadingHeader] = useState(true);
     const [loadingEntries, setLoadingEntries] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [currentMonth, setCurrentMonth] = useState(new Date());
 
+    const getDaysInMonth = (date: Date) => {
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const firstDayOfMonth = new Date(year, month, 1).getDay();
+        return { daysInMonth, firstDayOfMonth, year, month };
+    };
+
+    const { daysInMonth, firstDayOfMonth, year, month } = getDaysInMonth(currentMonth);
+    const blanks = Array(firstDayOfMonth).fill(null);
+    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    const prevMonth = () => setCurrentMonth(new Date(year, month - 1, 1));
+    const nextMonth = () => setCurrentMonth(new Date(year, month + 1, 1));
+
+    const formatDate = (y: number, m: number, d: number) => {
+        return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    };
+
+    const entriesByDate = pastEntries.reduce((acc, entry) => {
+        let dateStr = entry.date;
+        if (!dateStr) {
+           const raw = Number(entry.createdAt);
+           const ms = raw < 10000000000 ? raw * 1000 : raw;
+           const d = new Date(ms);
+           dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        acc[dateStr] = entry;
+        return acc;
+    }, {} as Record<string, JournalEntry>);
 
     useEffect(() => {
         fetchInitialData();
@@ -184,49 +215,48 @@ export function Journal({ userId, tenantId }: JournalProps) {
                     </div>
 
                     {loadingEntries ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />
-                            ))}
-                        </div>
-                    ) : pastEntries.length === 0 ? (
-                        <div className="text-center p-12 rounded-2xl bg-muted/30 border border-dashed border-border">
-                            <p className="text-muted-foreground text-sm">No reflections yet. Start your journey today!</p>
-                        </div>
+                        <div className="flex items-center justify-center h-64 bg-muted/20 rounded-3xl animate-pulse" />
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {pastEntries.map((entry) => (
-                                <div
-                                    key={entry.id}
-                                    onClick={() => setSelectedEntry(entry)}
-                                    className="p-5 rounded-2xl bg-background/40 border border-border hover:border-primary/50 hover:bg-background/60 transition-all cursor-pointer group hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden"
-                                >
-                                    <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <BookOpen className="w-4 h-4 text-primary/70" />
-                                    </div>
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className="text-xs font-medium text-primary py-1 px-2 bg-primary/10 rounded-md">
-                                            {/* Use the date column if it exists, ensuring it's parsed as local time */}
-                                            {entry.date ? 
-                                                (() => {
-                                                    const [y, m, d] = entry.date.split('-').map(Number);
-                                                    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                                                })() :
-                                                (() => {
-                                                    // Robust handling for createdAt timestamps (seconds vs milliseconds)
-                                                    const raw = Number(entry.createdAt);
-                                                    if (isNaN(raw)) return 'Invalid Date';
-                                                    
-                                                    // If < 10 billion, it's likely seconds (Jan 1970 is 0, Apr 2026 is ~1.7B)
-                                                    const ms = raw < 10000000000 ? raw * 1000 : raw;
-                                                    return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                                                })()
-                                            }
-                                        </div>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground line-clamp-3 italic">"{entry.content}"</p>
+                        <div className="p-6 md:p-8 rounded-3xl" style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
+                            <div className="flex justify-between items-center mb-6">
+                                <h4 className="text-xl font-semibold">{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h4>
+                                <div className="flex gap-2">
+                                    <button onClick={prevMonth} className="p-2 rounded-full hover:bg-muted/50 transition-colors border border-border/50"><ChevronLeft className="w-5 h-5" /></button>
+                                    <button onClick={nextMonth} className="p-2 rounded-full hover:bg-muted/50 transition-colors border border-border/50"><ChevronRight className="w-5 h-5" /></button>
                                 </div>
-                            ))}
+                            </div>
+                            
+                            <div className="grid grid-cols-7 gap-2 mb-4 text-center text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="opacity-70">{d}</div>)}
+                            </div>
+                            
+                            <div className="grid grid-cols-7 gap-2 md:gap-4">
+                                {blanks.map((_, i) => (
+                                    <div key={`blank-${i}`} className="aspect-square rounded-2xl bg-transparent" />
+                                ))}
+                                {days.map(day => {
+                                    const dateStr = formatDate(year, month, day);
+                                    const entry = entriesByDate[dateStr];
+                                    const isToday = dateStr === getLocalDateString();
+                                    
+                                    return (
+                                        <div 
+                                            key={day} 
+                                            onClick={() => entry && setSelectedEntry(entry)}
+                                            className={`aspect-square rounded-2xl flex flex-col items-center justify-center relative transition-all ${
+                                                entry 
+                                                    ? 'bg-primary/20 text-primary hover:bg-primary/30 font-bold border border-primary/30 cursor-pointer hover:scale-105 hover:shadow-lg' 
+                                                    : 'hover:bg-muted/20 text-foreground/70 cursor-default'
+                                            } ${isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+                                        >
+                                            <span className="text-lg md:text-xl">{day}</span>
+                                            {entry && (
+                                                <div className="absolute bottom-2 md:bottom-3 w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-primary animate-pulse" />
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>

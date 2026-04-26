@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { Activity, Heart, TrendingUp, Zap, BarChart3, Smile, Sparkles, Shield, Star, Loader2 } from 'lucide-react';
+import { Activity, Heart, TrendingUp, Zap, BarChart3, Smile, Sparkles, Shield, Star, Loader2, AlertTriangle, Wrench } from 'lucide-react';
 import { 
   LineChart, 
   Line, 
@@ -62,7 +62,7 @@ function GottmanEmptyState() {
 }
 
 // ─── Gottman card with real data ──────────────────────────────────────────────
-export function GottmanRatioCard({ ratio }: { ratio: number }) {
+export function GottmanRatioCard({ ratio, sampleWarning }: { ratio: number, sampleWarning?: boolean }) {
   const circumference = 502.4;
   const strokeDash = (Math.min(ratio, 7) / 7) * circumference;
 
@@ -99,10 +99,15 @@ export function GottmanRatioCard({ ratio }: { ratio: number }) {
           <span className="text-muted-foreground">Target:</span>
           <span className="text-foreground font-medium">5.0+</span>
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between items-center">
           <span className="text-muted-foreground">Status:</span>
-          <span className={ratio >= 5.0 ? 'text-green-500 font-medium' : 'text-destructive font-medium'}>
+          <span className={ratio >= 5.0 ? 'text-green-500 font-medium flex items-center' : 'text-destructive font-medium flex items-center'}>
             {ratio >= 5.0 ? 'Healthy' : 'Needs Attention'}
+            {sampleWarning && (
+              <span className="ml-2 text-[10px] uppercase tracking-wider opacity-60 bg-muted px-2 py-0.5 rounded-full cursor-help" title="Need more negative conflict samples to ensure an accurate 5:1 ratio calculation.">
+                Low Data
+              </span>
+            )}
           </span>
         </div>
       </div>
@@ -190,90 +195,196 @@ function InteractionTrendChart({ data }: { data: any[] }) {
   );
 }
 
-// ─── Relationship History Chart ────────────────────────────────────────────────
-function RelationshipHistoryChart({ data }: { data: any[] }) {
-  if (!data || data.length === 0) {
+function ImprovementsRequiredCard({ journals, history }: { journals: any[], history: any[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const journalImprovements = (journals || [])
+    .filter((j: any) => j.category === 'conflict' || j.sentimentScore < 0)
+    .map((j: any) => ({
+      id: `j-${j.id || j.date}`,
+      date: j.date || j.createdAt,
+      title: 'Journal Entry: Conflict',
+      description: j.content,
+      fix: "Reflect on this moment. Try to use 'I' statements next time and take a timeout if emotions run high.",
+      source: 'journal'
+    }));
+
+  const historyImprovements = (history && history.length > 0) 
+    ? history
+        .filter((h: any) => h.score < 60 && h.summary !== 'Analysis pending.')
+        .map((h: any) => ({
+          id: `h-${h.date}`,
+          date: h.date,
+          title: 'Chat History: Low Connection',
+          description: h.summary,
+          fix: "Communication seemed strained here. Practice active listening and validate your partner's feelings even if you disagree.",
+          source: 'history'
+        }))
+    : [];
+
+  const allImprovements = [...journalImprovements, ...historyImprovements]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
+
+  if (allImprovements.length === 0) {
     return (
-      <div className="p-12 text-center bg-muted/5 rounded-3xl border border-dashed border-muted-foreground/10 flex flex-col items-center justify-center">
-        <TrendingUp className="w-10 h-10 mb-4 text-muted-foreground/20" />
-        <h4 className="text-sm font-semibold opacity-60">Historical Sync Pending</h4>
-        <p className="text-[10px] text-muted-foreground opacity-40 mt-1 max-w-[200px]">
-          Upload chat logs in the AI Coach to populate your historical relationship timeline.
-        </p>
+      <div className="p-6 rounded-2xl flex flex-col h-full" style={glassCard}>
+        <div className="flex items-center gap-3 mb-4">
+          <AlertTriangle className="w-6 h-6 text-destructive" aria-hidden="true" />
+          <h3 className="text-lg font-semibold text-destructive">Improvements Required</h3>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-8">
+          <div className="text-sm text-muted-foreground mt-2">No areas of concern found. Great job!</div>
+        </div>
       </div>
     );
   }
 
-  const chartData = [...data]
-    .filter(d => d.summary !== 'Analysis pending.')
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .map(d => ({
-      date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }),
-      score: d.score,
-      summary: d.summary,
-      p1: d.partner1Mood,
-      p2: d.partner2Mood,
-    }));
+  return (
+    <div className="p-6 rounded-2xl flex flex-col h-full" style={glassCard}>
+      <div className="flex items-center gap-3 mb-6">
+        <AlertTriangle className="w-6 h-6 text-destructive" aria-hidden="true" />
+        <h3 className="text-lg font-semibold text-destructive">Improvements Required</h3>
+      </div>
+      <div className="flex flex-col gap-3">
+        {allImprovements.map((item) => {
+          const d = new Date(item.date);
+          const dayName = d.toLocaleDateString(undefined, { weekday: 'short' });
+          const displayTime = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+          const isExpanded = expandedId === item.id;
+
+          return (
+            <div 
+              key={item.id} 
+              onClick={() => setExpandedId(isExpanded ? null : item.id)}
+              className="p-4 rounded-2xl border border-destructive/20 cursor-pointer transition-all hover:bg-destructive/5"
+              style={{ backgroundColor: 'rgba(40, 10, 10, 0.3)' }}
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex flex-col gap-1 pr-4">
+                  <span className="text-base font-medium text-destructive/90">{dayName}</span>
+                  <span className="text-xs text-muted-foreground opacity-70">
+                    {displayTime} • {item.source === 'journal' ? 'Journal' : 'Chat'}
+                  </span>
+                  <span className="text-sm text-foreground/80 mt-1 line-clamp-1">{item.description}</span>
+                </div>
+              </div>
+              
+              {isExpanded && (
+                <div className="mt-4 pt-4 border-t border-destructive/20 text-sm text-muted-foreground animate-in slide-in-from-top-2 duration-200">
+                  <p className="mb-4 leading-relaxed text-foreground/90 italic">
+                    "{item.description}"
+                  </p>
+                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <div className="flex items-center gap-2 mb-2">
+                       <Wrench className="w-4 h-4 text-destructive" />
+                       <span className="font-semibold text-destructive text-xs uppercase tracking-wider">Suggested Fix</span>
+                    </div>
+                    <p className="text-destructive/90 text-xs leading-relaxed">{item.fix}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+function BestMomentsCard({ data }: { data: any[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="p-6 rounded-2xl flex flex-col h-full" style={glassCard}>
+        <div className="flex items-center gap-3 mb-4">
+          <Star className="w-6 h-6 text-primary" aria-hidden="true" />
+          <h3 className="text-lg font-semibold">Best Moments</h3>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-8">
+          <div className="text-4xl font-bold text-muted-foreground">—</div>
+          <div className="text-sm text-muted-foreground mt-2">no data yet</div>
+        </div>
+      </div>
+    );
+  }
+
+  const bestMoments = data.filter(d => d.score >= 80 && d.summary !== 'Analysis pending.');
+
+  if (bestMoments.length === 0) {
+    return (
+      <div className="p-6 rounded-2xl flex flex-col h-full" style={glassCard}>
+        <div className="flex items-center gap-3 mb-4">
+          <Star className="w-6 h-6 text-primary" aria-hidden="true" />
+          <h3 className="text-lg font-semibold">Best Moments</h3>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-8">
+          <div className="text-sm text-muted-foreground mt-2">No moments found yet.</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-72 w-full mt-6">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-          <defs>
-            <linearGradient id="historyGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4}/>
-              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.1} />
-          <XAxis 
-            dataKey="date" 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }}
-          />
-          <YAxis 
-            domain={[0, 100]}
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }}
-          />
-          <Tooltip 
-            cursor={{ stroke: 'var(--primary)', strokeWidth: 1, strokeDasharray: '4 4' }}
-            content={({ active, payload }) => {
-              if (active && payload && payload.length) {
-                const d = payload[0].payload;
-                return (
-                  <div className="p-4 rounded-2xl shadow-2xl bg-background/95 backdrop-blur-xl border border-primary/20 max-w-[260px] animate-in zoom-in-95 duration-200">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-primary/60 mb-1">{d.date}</div>
-                    <div className="text-3xl font-black text-primary mb-2">{d.score}<span className="text-xs ml-1 opacity-40">%</span></div>
-                    <p className="text-[11px] leading-relaxed italic mb-4 text-foreground/80 font-medium">"{d.summary}"</p>
-                    <div className="flex gap-2">
-                       <div className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[9px] font-bold uppercase tracking-tighter border border-primary/20 flex items-center gap-1">
-                          <Smile className="w-3 h-3" /> {d.p1}
-                       </div>
-                       <div className="px-2.5 py-1 rounded-full bg-accent/10 text-accent text-[9px] font-bold uppercase tracking-tighter border border-accent/20 flex items-center gap-1">
-                          <Heart className="w-3 h-3" /> {d.p2}
-                       </div>
+    <div className="p-6 rounded-2xl flex flex-col" style={glassCard}>
+      <div className="flex items-center gap-3 mb-6">
+        <Star className="w-6 h-6 text-primary" aria-hidden="true" />
+        <h3 className="text-lg font-semibold">Best Moments</h3>
+      </div>
+      <div className="flex flex-col gap-3">
+        {bestMoments.slice(0, 3).map((moment) => {
+          const d = new Date(moment.date);
+          const dayName = d.toLocaleDateString(undefined, { weekday: 'short' });
+          const timeString = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+          const displayTime = (timeString && !timeString.includes('12:00 AM') && !timeString.includes('00:00')) 
+            ? timeString 
+            : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+          
+          const isExpanded = expandedId === moment.date;
+
+          return (
+            <div 
+              key={moment.date} 
+              onClick={() => setExpandedId(isExpanded ? null : moment.date)}
+              className="p-4 rounded-2xl border border-white/5 cursor-pointer transition-all hover:bg-white/5"
+              style={{ backgroundColor: 'rgba(30, 20, 40, 0.4)' }}
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex flex-col gap-1 pr-4">
+                  <span className="text-base font-medium text-foreground">{dayName}</span>
+                  <span className="text-xs text-muted-foreground opacity-70">
+                    {displayTime}
+                  </span>
+                  <span className="text-sm text-foreground/80 mt-1 line-clamp-1">{moment.summary}</span>
+                </div>
+                <div className="px-2 py-1 rounded-lg bg-primary/20 text-primary/90 text-xs font-semibold border border-primary/10 whitespace-nowrap">
+                  {moment.score}%
+                </div>
+              </div>
+              
+              {isExpanded && (
+                <div className="mt-4 pt-4 border-t border-white/10 text-sm text-muted-foreground animate-in slide-in-from-top-2 duration-200">
+                  <p className="mb-4 leading-relaxed text-foreground/90">
+                    {moment.summary}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/20 border border-white/5 text-xs">
+                       <Smile className="w-3.5 h-3.5 text-primary" />
+                       <span className="font-medium text-foreground/80">{moment.partner1Mood || 'Happy'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/20 border border-white/5 text-xs">
+                       <Heart className="w-3.5 h-3.5 text-accent" />
+                       <span className="font-medium text-foreground/80">{moment.partner2Mood || 'Joyful'}</span>
                     </div>
                   </div>
-                );
-              }
-              return null;
-            }}
-          />
-          <Area 
-            type="monotone" 
-            dataKey="score" 
-            stroke="var(--primary)" 
-            strokeWidth={4}
-            fillOpacity={1}
-            fill="url(#historyGradient)"
-            dot={{ r: 4, fill: 'var(--primary)', strokeWidth: 3, stroke: 'var(--background)' }}
-            activeDot={{ r: 7, strokeWidth: 2, stroke: 'var(--background)', fill: '#ff00ff' }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -350,47 +461,21 @@ export function Dashboard() {
     );
   }
 
-  const { lastMood, recentInteractions, greeting, insights, history } = data || {};
+  const { lastMood, recentInteractions, greeting, insights, history, journals, computedMetrics } = data || {};
 
   // ── Detect empty state — no real data at all ───────────────────────────────
   const hasInteractions = Array.isArray(recentInteractions) && recentInteractions.length > 0;
   const hasMood = lastMood != null;
   const isEmpty = !hasInteractions && !hasMood;
 
-  // ── Compute metrics only when we have real data ────────────────────────────
   const sortedInteractions = hasInteractions
-    ? [...recentInteractions].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    ? [...recentInteractions].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(a.date).getTime())
     : [];
 
-  const totalPositive = sortedInteractions.reduce((s: number, i: any) => s + (i.positiveCount || 0), 0);
-  const totalNegative = sortedInteractions.reduce((s: number, i: any) => s + (i.negativeCount || 0), 0);
   const totalBids = sortedInteractions.reduce((s: number, i: any) => s + (i.bidsCount || 0), 0);
   const totalRepairs = sortedInteractions.reduce((s: number, i: any) => s + (i.repairsCount || 0), 0);
-  const gottmanRatio = hasInteractions
-    ? (totalNegative === 0 ? totalPositive : Number((totalPositive / totalNegative).toFixed(1)))
-    : null;
 
-  const calculateScore = (interactions: any[], moodVal: number) => {
-    const p = interactions.reduce((s: number, i: any) => s + (i.positiveCount || 0), 0);
-    const n = interactions.reduce((s: number, i: any) => s + (i.negativeCount || 0), 0);
-    const t = p + n;
-    const interactionScore = t > 0 ? (p / t) * 100 : 50;
-    return Math.round((interactionScore * 0.7) + (moodVal * 10 * 0.3));
-  };
-
-  const midPoint = Math.max(1, Math.floor(sortedInteractions.length / 2));
-  const latestHalf = sortedInteractions.slice(0, midPoint);
-  const olderHalf = sortedInteractions.slice(midPoint);
-  
-  const healthScore = hasInteractions
-    ? calculateScore(latestHalf, lastMood?.moodValue || 5)
-    : null;
-
-  const prevHealthScore = (hasInteractions && olderHalf.length > 0) 
-    ? calculateScore(olderHalf, lastMood?.moodValue || 5) 
-    : null;
-    
-  const trend = healthScore != null && prevHealthScore != null ? healthScore - prevHealthScore : null;
+  const { gottmanRatio, sampleWarning, healthScore, trend, trendStatus } = computedMetrics || {};
   const isPositiveTrend = trend != null && trend >= 0;
 
   return (
@@ -431,7 +516,7 @@ export function Dashboard() {
                   <Star className="w-3.5 h-3.5" />
                   {totalBids} Bids Detected
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-medium">
                   <Heart className="w-3.5 h-3.5" />
                   {totalRepairs} Repairs Noticed
                 </div>
@@ -497,7 +582,11 @@ export function Dashboard() {
             </div>
 
             {/* Trend or placeholder hint */}
-            {trend != null && trend !== 0 ? (
+            {trendStatus === 'INSUFFICIENT_DATA' ? (
+              <p className="text-sm text-muted-foreground opacity-50 mt-2">
+                Log interactions for at least a week to see your trend
+              </p>
+            ) : trend != null && trend !== 0 ? (
               <div className="flex items-center gap-1.5 mt-2">
                 <TrendingUp className={`w-4 h-4 ${isPositiveTrend ? 'text-green-500' : 'text-destructive rotate-180'}`} />
                 <span className={`text-sm font-medium ${isPositiveTrend ? 'text-green-500' : 'text-destructive'}`}>
@@ -506,7 +595,7 @@ export function Dashboard() {
                 <span className="text-sm text-muted-foreground">from last week</span>
               </div>
             ) : isEmpty ? (
-              <p className="text-sm text-muted-foreground opacity-50">
+              <p className="text-sm text-muted-foreground opacity-50 mt-2">
                 Log your mood daily to track your wellness score
               </p>
             ) : null}
@@ -517,7 +606,7 @@ export function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Gottman card */}
           {gottmanRatio != null ? (
-            <GottmanRatioCard ratio={gottmanRatio} />
+            <GottmanRatioCard ratio={gottmanRatio} sampleWarning={sampleWarning} />
           ) : (
             <GottmanEmptyState />
           )}
@@ -540,21 +629,16 @@ export function Dashboard() {
               </div>
             )}
           </div>
-        </div>
 
-        {/* Relationship History (Full Width) */}
-        <div className="p-8 rounded-3xl mb-8 border border-white/5" style={{ ...glassCard, background: 'linear-gradient(180deg, color-mix(in srgb, var(--primary), transparent 97%) 0%, transparent 100%)', backdropFilter: 'blur(30px)' }}>
-           <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                 <TrendingUp className="w-8 h-8 text-primary" aria-hidden="true" />
-                 <h2>Relationship History</h2>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-tighter">
-                 <Sparkles className="w-3 h-3" /> AI Derived Timeline
-              </div>
-           </div>
-           <p className="text-muted-foreground mb-6 text-sm">Long-term wellness trends extracted from your deep chat archives.</p>
-           <RelationshipHistoryChart data={history || []} />
+          {/* Improvements Required - Below Gottman (Left) */}
+          <div className="lg:col-start-1">
+            <ImprovementsRequiredCard journals={journals || []} history={history || []} />
+          </div>
+
+          {/* Best Moments - Below Interactions (Right) */}
+          <div className="lg:col-start-2">
+            <BestMomentsCard data={history || []} />
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { TenantDatabaseManager } from '../tenant-manager';
 import * as schema from '../db/schema';
-import { eq, desc, asc, and, sql } from 'drizzle-orm';
+import { eq, desc, asc, and, sql, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 
 const tenantManager = new TenantDatabaseManager();
@@ -89,6 +89,11 @@ export const joinTenant = async (req: Request, res: Response) => {
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
 import { generateDynamicGreeting } from '../services/ai/greeting-service';
+import {
+  calculateGottmanRatio,
+  calculateHealthScore,
+  calculateTrend
+} from '../utils/dashboard-calculator';
 
 export const getDashboardData = async (req: Request, res: Response) => {
   try {
@@ -111,12 +116,25 @@ export const getDashboardData = async (req: Request, res: Response) => {
       }
     }
 
-    const [lastMood, insights, interaction, greeting, history] = await Promise.all([
-      db.select().from(schema.moodLogs).where(eq(schema.moodLogs.tenantId, tid)).orderBy(desc(schema.moodLogs.createdAt)).limit(1),
+    const endUTC = new Date();
+    const startUTC = new Date(endUTC.getTime() - 14 * 24 * 60 * 60 * 1000); // 14 days for trend
+
+    const [moods, insights, interaction, greeting, history, journals] = await Promise.all([
+      db.select()
+        .from(schema.moodLogs)
+        .where(
+          and(
+            eq(schema.moodLogs.tenantId, tid),
+            gte(schema.moodLogs.createdAt, startUTC),
+            lte(schema.moodLogs.createdAt, endUTC)
+          )
+        )
+        .orderBy(desc(schema.moodLogs.createdAt)),
       db.select().from(schema.aiInsights).where(eq(schema.aiInsights.tenantId, tid)).orderBy(desc(schema.aiInsights.createdAt)).limit(3),
       db.select().from(schema.interactionMetrics).where(eq(schema.interactionMetrics.tenantId, tid)).orderBy(desc(schema.interactionMetrics.date)).limit(14),
       generateDynamicGreeting(userName, tid),
-      db.select().from(schema.relationshipHealthHistory).where(eq(schema.relationshipHealthHistory.tenantId, tid)).orderBy(desc(schema.relationshipHealthHistory.date)).limit(200)
+      db.select().from(schema.relationshipHealthHistory).where(eq(schema.relationshipHealthHistory.tenantId, tid)).orderBy(desc(schema.relationshipHealthHistory.date)).limit(200),
+      db.select().from(schema.journalEntries).where(eq(schema.journalEntries.tenantId, tid)).orderBy(desc(schema.journalEntries.date)).limit(50)
     ]);
 
     // --- Smart Sync Logic ---
@@ -146,12 +164,26 @@ export const getDashboardData = async (req: Request, res: Response) => {
       }
     }
 
+    // Compute metrics
+    const gottmanResult = calculateGottmanRatio(interaction as any);
+    const healthScore = calculateHealthScore(interaction as any, moods as any);
+    const trendResult = calculateTrend(interaction as any, moods as any);
+
     res.json({
-      lastMood: lastMood[0] || null,
+      lastMood: moods[0] || null,
+      recentMoods: moods,
       insights,
       recentInteractions: interaction,
+      journals,
       greeting,
-      history
+      history,
+      computedMetrics: {
+        gottmanRatio: gottmanResult.ratio,
+        sampleWarning: gottmanResult.sampleWarning,
+        healthScore: healthScore,
+        trend: trendResult.trend,
+        trendStatus: trendResult.trendStatus
+      }
     });
   } catch (error: any) {
     console.error('Dashboard error:', error);
