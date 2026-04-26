@@ -849,6 +849,7 @@ export function AICoach() {
           </div>
         </div>
       </main>
+      </div>
     </div>
   );
 }
