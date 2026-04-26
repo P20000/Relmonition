@@ -278,7 +278,15 @@ export function AICoach() {
       await processStream(response);
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        setMessages(prev => [...prev, { role: 'assistant', content: '... (Generation Paused)', timestamp: 'Stopped' }]);
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'assistant' && (last.content === '' || last.timestamp === 'Thinking...')) {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: 'assistant', content: '... (Generation Paused)', timestamp: 'Stopped' };
+            return updated;
+          }
+          return [...prev, { role: 'assistant', content: '... (Generation Paused)', timestamp: 'Stopped' }];
+        });
       } else {
         console.error('Coach Error:', err);
       }
@@ -495,7 +503,7 @@ export function AICoach() {
 
       {/* Sidebar: Conversations */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-80 overflow-y-auto p-6 transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:block lg:m-6 lg:rounded-[2rem] lg:h-[calc(100vh-3rem)] border border-white/10 shadow-2xl custom-scrollbar ${
+        className={`fixed inset-y-0 left-0 z-50 w-80 overflow-y-auto p-6 transition-all duration-300 ease-in-out lg:translate-x-0 lg:sticky lg:top-24 lg:block lg:ml-6 lg:mb-6 lg:rounded-[2rem] lg:h-[750px] border border-white/10 shadow-2xl custom-scrollbar ${
           isHistoryOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(30px)' }}
@@ -556,7 +564,7 @@ export function AICoach() {
 
       {/* Main Chat Area */}
       <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl">
           {/* Header */}
           <header className="mb-8 flex justify-between items-start">
             <div className="flex items-center gap-3">
@@ -708,10 +716,10 @@ export function AICoach() {
                     rows={1}
                     disabled={isSending || isStreaming}
                   />
-                  {isStreaming ? (
+                  {isStreaming || isSending ? (
                     <button
                       onClick={handleStop}
-                      className="absolute right-3 bottom-3 p-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors animate-pulse"
+                      className="absolute right-3 bottom-[11px] p-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all animate-pulse"
                       title="Stop Generation"
                     >
                       <Square className="w-4 h-4 fill-current" />
@@ -719,10 +727,10 @@ export function AICoach() {
                   ) : (
                     <button
                       onClick={() => handleSend()}
-                      disabled={!input.trim() || isSending}
-                      className="absolute right-3 bottom-3 p-2 rounded-xl bg-primary text-primary-foreground hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-30"
+                      disabled={!input.trim()}
+                      className="absolute right-3 bottom-[11px] p-2 rounded-xl bg-primary text-primary-foreground hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-30"
                     >
-                       {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                       <Send className="w-4 h-4" />
                     </button>
                   )}
                 </div>
