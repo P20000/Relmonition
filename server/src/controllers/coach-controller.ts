@@ -33,6 +33,24 @@ export const getConversations = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteConversation = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.params.tenantId as string;
+    const sessionId = req.params.sessionId as string;
+    const { client: db } = await tenantManager.getDatabaseClient(tenantId);
+
+    await db.delete(schema.coachMessages).where(eq(schema.coachMessages.conversationId, sessionId));
+    await db.delete(schema.coachConversations).where(and(
+      eq(schema.coachConversations.id, sessionId),
+      eq(schema.coachConversations.tenantId, tenantId)
+    ));
+
+    res.json({ message: 'Conversation deleted successfully.' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to delete conversation.' });
+  }
+};
+
 export const getMessages = async (req: Request, res: Response) => {
   try {
     const tenantId = req.params.tenantId as string;

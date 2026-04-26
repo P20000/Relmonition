@@ -7,7 +7,8 @@ import {
   getMessages,
   streamChat,
   regenerateResponse,
-  editLatestPrompt
+  editLatestPrompt,
+  deleteConversation
 } from '../controllers/coach-controller';
 
 const router = Router();
@@ -23,6 +24,7 @@ router.delete('/context/:tenantId/:uploadId', deleteContextUpload);
 
 // AI Coach Sessions & Persistence
 router.get('/sessions/:tenantId', getConversations);
+router.delete('/sessions/:tenantId/:sessionId', deleteConversation);
 router.get('/sessions/:tenantId/:sessionId/messages', getMessages);
 router.post('/chat/stream', streamChat);
 router.post('/chat/regenerate', regenerateResponse);
