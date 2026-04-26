@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../api-client';
 import { useAuth } from '../context/AuthContext';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type CoachMode = 'retrieval' | 'exploration';
 type Message = {
@@ -79,7 +81,7 @@ export function AICoach() {
     } else if (!activeSessionId) {
       setMessages([{
         role: 'assistant',
-        content: 'I\'m your relationship coach. Select a past conversation or start a new one to begin.\n\n**Retrieval Mode** for rapid de-escalation.\n**Exploration Mode** for deep pattern analysis.',
+        content: '# Welcome to your AI Coach\n\nI\'m here to provide empathetic guidance grounded in your shared history. Select a past conversation or start a new one to begin.\n\n* **Retrieval Mode**: Best for rapid de-escalation and specific advice.\n* **Exploration Mode**: Best for deep pattern analysis and long-term growth.',
         timestamp: 'Coach Ready',
       }]);
     }
@@ -322,7 +324,7 @@ export function AICoach() {
     setActiveSessionId(null);
     setMessages([{
       role: 'assistant',
-      content: 'Starting new conversation. How can I help you and your partner today?',
+      content: '### New Conversation Started\n\nHow can I help you and your partner today? I have access to your **journal history** and **uploaded context** to provide the most relevant advice.',
       timestamp: 'New Stream'
     }]);
     setIsHistoryOpen(false);
@@ -579,7 +581,7 @@ export function AICoach() {
                       } ${isEditing === message.id ? 'w-full' : ''} rounded-2xl p-5`}
                     >
                       {/* Message Content */}
-                      <div className="whitespace-pre-wrap leading-relaxed text-sm">
+                      <div className="leading-relaxed text-sm">
                         {isEditing === message.id ? (
                            <div className="space-y-3">
                               <textarea 
@@ -594,7 +596,20 @@ export function AICoach() {
                               </div>
                            </div>
                         ) : (
-                          message.content
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              p: ({children}) => <p className="mb-3 last:mb-0">{children}</p>,
+                              ul: ({children}) => <ul className="list-disc ml-4 mb-3 space-y-1">{children}</ul>,
+                              ol: ({children}) => <ol className="list-decimal ml-4 mb-3 space-y-1">{children}</ol>,
+                              li: ({children}) => <li>{children}</li>,
+                              strong: ({children}) => <span className="font-bold text-inherit">{children}</span>,
+                              code: ({children}) => <code className="bg-black/10 dark:bg-white/10 px-1 rounded text-xs">{children}</code>,
+                              blockquote: ({children}) => <blockquote className="border-l-4 border-primary/30 pl-4 italic my-2">{children}</blockquote>
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
                         )}
                       </div>
 
