@@ -78,7 +78,8 @@ export const triggerProfileGeneration = async (req: Request, res: Response) => {
 // PATCH /api/v1/profiles/:tenantId/:userId/likes
 export const updateLikesDislikes = async (req: Request, res: Response) => {
   try {
-    const { tenantId, userId } = req.params;
+    const tenantId = String(req.params.tenantId);
+    const userId = String(req.params.userId);
     const { type, action, item } = req.body; // type: 'like' | 'dislike', action: 'add' | 'remove', item: string
     
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
