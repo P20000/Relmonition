@@ -19,10 +19,25 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: relmonition-server
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./server
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
       - name: Update Kubeconfig
         run: |
-          # Ensure the aws cli is authenticated in the current shell session
-          aws sts get-caller-identity
           aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1
 
       - name: Deploy App
@@ -31,9 +46,8 @@ jobs:
           TURSO_CONNECTION_URL: ${{ secrets.TURSO_CONNECTION_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          # Test auth again before deploy
-          kubectl get svc
-          
           chmod +x ./deploy.sh
+          # We pass the image details to deploy.sh if needed, or just let it use 'latest'
           ./deploy.sh

@@ -10,3 +10,19 @@ resources:
 turso:
   connectionUrl: ""
   authToken: ""
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80

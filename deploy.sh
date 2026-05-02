@@ -1,36 +1,36 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Full Deployment (App + Ingress)..."
+echo "🚀 Starting Deployment (Backend)..."
 
-# 1. Update Kubernetes Context
-echo "🔄 Updating Kubeconfig..."
-aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1
+# 1. Update Kubernetes Context (if not already done by CI)
+if [[ -z "$GITHUB_ACTIONS" ]]; then
+  echo "🔄 Updating Kubeconfig..."
+  aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1
+fi
 
-# 2. ECR & Docker Build
-echo "🐳 Preparing Container Registry..."
-# Create repo if it doesn't exist
-ECR_URL=$(aws ecr describe-repositories --repository-names relmonition-server --region ap-south-1 --query 'repositories[0].repositoryUri' --output text 2>/dev/null || aws ecr create-repository --repository-name relmonition-server --region ap-south-1 --query 'repository.repositoryUri' --output text)
+# 2. ECR Registry URL
+if [[ -z "$ECR_REGISTRY" ]]; then
+  echo "🔍 Fetching ECR Registry URL..."
+  ECR_URL=$(aws ecr describe-repositories --repository-names relmonition-server --region ap-south-1 --query 'repositories[0].repositoryUri' --output text)
+else
+  ECR_URL="$ECR_REGISTRY/relmonition-server"
+fi
 
-echo "🔑 Authenticating Docker..."
-aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $ECR_URL
-
-echo "🔨 Building Docker Image..."
-docker build -t relmonition-server ./server
-docker tag relmonition-server:latest $ECR_URL:latest
-docker push $ECR_URL:latest
-
-# 3. Ingress Controller (Automated)
-echo "🌐 Installing/Upgrading Ingress Controller..."
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm repo update
-helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
+# 3. Ingress Controller (Ensure it exists)
+echo "🌐 Checking Ingress Controller..."
+if ! helm list -n ingress-nginx | grep -q ingress-nginx; then
+  echo "Installing Ingress Controller..."
+  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+  helm repo update
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
+fi
 
 # 4. App Deployment (Helm)
-echo "☸️ Deploying Relmonition App..."
+echo "☸️ Deploying Relmonition App for tenant 001..."
 kubectl create namespace couple-001 --dry-run=client -o yaml | kubectl apply -f -
 
-# Explicitly setting all variables to avoid "nil pointer" issues
+# Explicitly setting all variables
 helm upgrade --install couple-001 ./charts/relmonition-tenant -n couple-001 \
   --set image.repository=$ECR_URL \
   --set image.tag=latest \
@@ -38,5 +38,4 @@ helm upgrade --install couple-001 ./charts/relmonition-tenant -n couple-001 \
   --set turso.connectionUrl="${TURSO_CONNECTION_URL}" \
   --set turso.authToken="${TURSO_AUTH_TOKEN}"
 
-aws eks update-kubeconfig --name relmonition-cluster --region ap-south-1
-echo "✅ Full Deployment Successful! Your app is live."
+echo "✅ Backend Deployment Successful!"

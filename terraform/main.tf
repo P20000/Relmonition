@@ -30,6 +30,9 @@ module "eks" {
     provider_key_arn = aws_kms_key.eks_secrets.arn
   }
 
+  # IAM Role for Service Accounts (IRSA)
+  enable_irsa = true
+
   fargate_profiles = {
     kube_system = {
       name = "kube-system"
@@ -37,9 +40,12 @@ module "eks" {
         { namespace = "kube-system" }
       ]
     }
-    shared_services = {
-      name = "shared-services"
+    # Main profile for tenant applications
+    # For now, we specify the namespaces explicitly or use a common one
+    tenants = {
+      name = "tenants"
       selectors = [
+        { namespace = "couple-001" },
         { namespace = "shared-services" },
         { namespace = "default" }
       ]
