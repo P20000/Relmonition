@@ -37,6 +37,9 @@ module "eks" {
   # Enable Public API Server Endpoint so we can configure EKS from outside the VPC
   cluster_endpoint_public_access = true
 
+  # Grant administrative permissions to the IAM identity that created the cluster (required for Helm/Kubernetes providers)
+  enable_cluster_creator_admin_permissions = true
+
   # Managed Node Groups (Scalable for any number of namespaces)
   eks_managed_node_groups = {
     tenants = {
