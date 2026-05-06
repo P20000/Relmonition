@@ -257,7 +257,12 @@ export const getUserTenants = async (req: Request, res: Response) => {
 
     res.json(results.filter(Boolean));
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to get user tenants', details: error.message });
+    console.error('getUserTenants error:', error);
+    res.status(500).json({ 
+      error: 'Failed to get user tenants', 
+      details: error.message,
+      cause: error.cause?.message || error.cause
+    });
   }
 };
 
