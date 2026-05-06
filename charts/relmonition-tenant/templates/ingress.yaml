@@ -17,14 +17,16 @@ metadata:
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: {{ .Values.ingress.corsOrigin | quote }}
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
-  - host: "api-{{ .Values.coupleId }}.{{ .Values.ingress.domain }}"
+  - host: "api.{{ .Values.ingress.domain }}"
     http:
       paths:
-      - path: /
-        pathType: Prefix
+      - path: /{{ .Values.coupleId }}(/|$)(.*)
+        pathType: ImplementationSpecific
         backend:
           service:
             name: {{ .Release.Name }}-server

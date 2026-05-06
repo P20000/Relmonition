@@ -1,4 +1,16 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-001.relmonition.dpdns.org/api/v1';
+const API_URL_PROXY = {
+  toString() {
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      return process.env.NEXT_PUBLIC_API_URL;
+    }
+    if (typeof window !== 'undefined') {
+      const tenantId = localStorage.getItem('activeTenantId') || '001';
+      return `https://api.relmonition.dpdns.org/${tenantId}/api/v1`;
+    }
+    return 'https://api.relmonition.dpdns.org/001/api/v1';
+  }
+};
+const API_URL = API_URL_PROXY as unknown as string;
 
 export type TenantMember = {
   id: string; // userId

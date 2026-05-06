@@ -404,7 +404,7 @@ export function Dashboard() {
           setData({ lastMood: null, insights: [], recentInteractions: [], history: [] });
           return;
         }
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-001.relmonition.dpdns.org/api/v1';
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${tenantId}/api/v1`;
         const url = new URL(`${API_URL}/dashboard/${tenantId}`);
         if (userId) url.searchParams.append('userId', userId);
         
