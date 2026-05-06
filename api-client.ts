@@ -1,7 +1,7 @@
 /**
  * Frontend API Utility to communicate with the Backend
  */
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-001.relmonition.dpdns.org/api/v1';
 
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
