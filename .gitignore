@@ -18,6 +18,7 @@ npm-debug.log*
 *.tfstate
 *.tfstate.backup
 *.tfplan
+*.out
 *.tfvars
 .terraform.tfstate.lock.info
 

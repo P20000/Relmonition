@@ -17,18 +17,13 @@ else
   ECR_URL="$ECR_REGISTRY/relmonition-server"
 fi
 
-# 3. Ingress Controller (Ensure it exists)
-echo "🌐 Checking Ingress Controller..."
-if ! helm list -n ingress-nginx | grep -q ingress-nginx; then
-  echo "Installing Ingress Controller..."
-  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-  helm repo update
-  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
-fi
 
-# 4. App Deployment (Helm)
+# 3. App Deployment (Helm)
 echo "☸️ Deploying Relmonition App for tenant 001..."
-kubectl create namespace couple-001 --dry-run=client -o yaml | kubectl apply -f -
+# Create namespace with proper compliance metadata
+kubectl create namespace couple-001 --dry-run=client -o yaml | \
+  kubectl label -f - compliance-tier=hipaa-gdpr encryption-required=true --local -o yaml | \
+  kubectl apply -f -
 
 # Explicitly setting all variables
 helm upgrade --install couple-001 ./charts/relmonition-tenant -n couple-001 \

@@ -6,4 +6,11 @@ terraform {
     encrypt        = true
     use_lockfile   = true
   }
+
+  required_providers {
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.17.0"
+    }
+  }
 }

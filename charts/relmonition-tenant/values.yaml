@@ -4,12 +4,23 @@ image:
   tag: latest
 replicaCount: 2
 resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
   limits:
     memory: 512Mi
-    cpu: 500m
+    cpu: 250m
 turso:
   connectionUrl: ""
   authToken: ""
+
+ingress:
+  enabled: true
+  className: "nginx"
+  domain: "relmonition.dpdns.org"
+  # Replace with your actual ACM Certificate ARN
+  acmCertificateArn: "arn:aws:acm:ap-south-1:982534376726:certificate/f77f8622-eb95-4568-871c-d0172de69e48" 
+  corsOrigin: "https://relmonition.dpdns.org"
 
 probes:
   liveness:

@@ -11,6 +11,8 @@ resource "aws_ecr_repository" "server" {
     kms_key         = aws_kms_key.eks_secrets.arn
   }
 
+  force_delete         = true
+
   tags = {
     Project = "Relmonition"
   }
