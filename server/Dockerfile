@@ -1,5 +1,5 @@
-# Use Node 22 (LTS) on Alpine for a small, secure image
-FROM node:22-alpine AS builder
+# Use Node 22 (LTS) on Debian Slim for a small, secure, glibc-compatible image
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ COPY . .
 RUN npm run build
 
 # Use a minimal runner image
-FROM node:22-alpine AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 # Only copy the production dependencies and the build output

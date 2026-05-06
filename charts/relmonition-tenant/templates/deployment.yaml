@@ -15,6 +15,11 @@ spec:
         app: relmonition
         tenant: {{ .Values.coupleId | quote }}
     spec:
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "2"
+          - name: single-request-reopen
       containers:
       - name: server
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
