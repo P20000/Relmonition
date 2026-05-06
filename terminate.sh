@@ -4,9 +4,15 @@
 echo "🚀 Starting Full AWS Cleanup..."
 
 # 1. Cleanup Kubernetes Apps
-echo "☸️ Attempting Kubernetes app cleanup..."
-helm uninstall couple-001 -n couple-001 --ignore-not-found || true
-kubectl delete namespace couple-001 --ignore-not-found || true
+echo "☸️ Finding and deleting all active tenant Helm releases and namespaces..."
+for ns in $(kubectl get namespaces -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep '^couple-'); do
+  tenant_id=${ns#couple-}
+  echo "🗑️ Uninstalling Helm release: couple-${tenant_id} in namespace ${ns}..."
+  helm uninstall "couple-${tenant_id}" -n "${ns}" --ignore-not-found || true
+  echo "🗑️ Deleting namespace: ${ns}..."
+  kubectl delete namespace "${ns}" --ignore-not-found || true
+done
+echo "✅ Dynamic tenant cleanup complete."
 
 
 # 2. Cleanup Docker images (ECR)
