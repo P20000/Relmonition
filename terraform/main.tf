@@ -34,6 +34,9 @@ module "eks" {
   # IAM Role for Service Accounts (IRSA)
   enable_irsa = true
 
+  # Enable Public API Server Endpoint so we can configure EKS from outside the VPC
+  cluster_endpoint_public_access = true
+
   # Managed Node Groups (Scalable for any number of namespaces)
   eks_managed_node_groups = {
     tenants = {
