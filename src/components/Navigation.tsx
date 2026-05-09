@@ -1,5 +1,6 @@
 "use client";
-import { Heart, BookOpen, Brain, Menu, X, LogOut, Settings as SettingsIcon, User } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Brain, Menu, X, LogOut, Settings as SettingsIcon, User } from 'lucide-react';
+import { LogoIcon } from './ui/LogoIcon';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
@@ -13,7 +14,7 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
   const { logout } = useAuth();
 
   const navItems = [
-    { id: 'dashboard' as const, label: 'Dashboard', icon: Heart },
+    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'journal' as const, label: 'Journal', icon: BookOpen },
     { id: 'coach' as const, label: 'AI Coach', icon: Brain },
     { id: 'personality' as const, label: 'Personality', icon: User },
@@ -34,12 +35,7 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center"
-              aria-hidden="true"
-            >
-              <Heart className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <LogoIcon className="w-10 h-10 text-foreground" />
             <div>
               <h1 className="text-xl">Relmonition</h1>
               <p className="text-xs text-muted-foreground hidden md:block">
