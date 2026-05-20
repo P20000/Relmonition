@@ -51,6 +51,9 @@ try {
   console.warn('[DNS] Failed to set public DNS servers or patch lookup:', e.message);
 }
 
+import cookieParser from 'cookie-parser';
+import { auditLogger } from './middleware/audit';
+
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -59,7 +62,19 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
+app.use(cookieParser());
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
+app.use(auditLogger);
 app.use(express.json({ limit: '50mb' }));
+
+import { authenticate } from './middleware/auth';
+import { authorize } from './middleware/authorize';
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
@@ -69,7 +84,7 @@ app.use('/api/v1/journal', journalRoutes);
 app.use('/api/v1/coach', coachRoutes);
 app.use('/api/v1/profiles', profileRoutes);
 app.use('/api/v1/tenant/:tenantId/ai-configs', aiConfigRoutes);
-app.get('/api/v1/dashboard/:tenantId', getDashboardData);
+app.get('/api/v1/dashboard/:tenantId', authenticate, authorize(), getDashboardData);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Relmonition API is running' });

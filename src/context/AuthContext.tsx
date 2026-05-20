@@ -30,67 +30,59 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('token');
     const savedUserId = localStorage.getItem('userId');
     const savedEmail = localStorage.getItem('email');
     const savedName = localStorage.getItem('name');
     const savedAccountType = localStorage.getItem('accountType');
     const savedTenantId = localStorage.getItem('activeTenantId');
 
-    setToken(savedToken);
-    setUserId(savedUserId);
-    setEmail(savedEmail);
-    setNameState(savedName);
-    setAccountType(savedAccountType);
-    setActiveTenantIdState(savedTenantId);
-    setIsLoaded(true);
-
-    // Auto-select tenant if missing but user is logged in
-    if (savedToken && savedUserId && !savedTenantId) {
-      getUserTenants(savedUserId).then(tenants => {
-        if (tenants.length > 0) {
-          setActiveTenantId(tenants[0].id);
-        }
-      });
+    if (savedUserId) {
+      setToken('session');
+      setUserId(savedUserId);
+      setEmail(savedEmail);
+      setNameState(savedName);
+      setAccountType(savedAccountType);
+      setActiveTenantIdState(savedTenantId);
     }
 
-    // Sync profile if missing but token exists
-    if (savedToken && (!savedEmail || !savedAccountType)) {
-      apiClient.getMe(savedToken).then(data => {
+    // Call getMe to verify and update session
+    apiClient.getMe()
+      .then(data => {
         localStorage.setItem('userId', data.userId);
         localStorage.setItem('email', data.email);
         localStorage.setItem('name', data.name);
         localStorage.setItem('accountType', data.accountType);
+        setToken('session');
         setUserId(data.userId);
         setEmail(data.email);
         setNameState(data.name);
         setAccountType(data.accountType);
 
-        // Also check tenants here if still missing
-        if (!savedTenantId) {
+        // Auto-select tenant if missing but user is logged in
+        const currentTenantId = savedTenantId || localStorage.getItem('activeTenantId');
+        if (!currentTenantId) {
           getUserTenants(data.userId).then(tenants => {
             if (tenants.length > 0) {
               setActiveTenantId(tenants[0].id);
             }
           });
         }
-      }).catch(err => {
+        setIsLoaded(true);
+      })
+      .catch(err => {
         console.error('Failed to sync profile:', err);
-        // If token is invalid, log out
-        if (err.message.includes('Session expired') || err.message.includes('invalid')) {
-          logout();
-        }
+        // Clear session since backend token validation failed
+        logout();
+        setIsLoaded(true);
       });
-    }
   }, []);
 
   const login = (newToken: string, newUserId: string, newEmail: string, newName: string, newAccountType: string) => {
-    localStorage.setItem('token', newToken);
     localStorage.setItem('userId', newUserId);
     localStorage.setItem('email', newEmail);
     localStorage.setItem('name', newName);
     localStorage.setItem('accountType', newAccountType);
-    setToken(newToken);
+    setToken('session');
     setUserId(newUserId);
     setEmail(newEmail);
     setNameState(newName);
@@ -110,7 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    apiClient.logout().catch(err => console.error('Logout request failed:', err));
     localStorage.removeItem('userId');
     localStorage.removeItem('email');
     localStorage.removeItem('name');

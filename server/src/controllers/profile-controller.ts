@@ -3,13 +3,15 @@ import { TenantDatabaseManager } from '../tenant-manager';
 import * as schema from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { generatePersonalityProfiles } from '../services/ai/profile-service';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { AuthorizedRequest } from '../middleware/authorize';
 
 const tenantManager = new TenantDatabaseManager();
 
 // GET /api/v1/profiles/:tenantId
 export const getProfiles = async (req: Request, res: Response) => {
   try {
-    const tenantId = req.params.tenantId as string;
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
     
     const profiles = await db.select().from(schema.partnerProfiles).where(eq(schema.partnerProfiles.tenantId, tenantId));
@@ -66,7 +68,7 @@ export const getProfiles = async (req: Request, res: Response) => {
 // POST /api/v1/profiles/:tenantId/generate
 export const triggerProfileGeneration = async (req: Request, res: Response) => {
   try {
-    const tenantId = req.params.tenantId as string;
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     // Non-blocking trigger
     generatePersonalityProfiles(tenantId).catch(console.error);
     res.json({ message: 'Profile generation started in background' });
@@ -78,8 +80,14 @@ export const triggerProfileGeneration = async (req: Request, res: Response) => {
 // PATCH /api/v1/profiles/:tenantId/:userId/likes
 export const updateLikesDislikes = async (req: Request, res: Response) => {
   try {
-    const tenantId = String(req.params.tenantId);
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     const userId = String(req.params.userId);
+    const authReq = req as AuthenticatedRequest;
+    
+    if (!authReq.user || authReq.user.userId !== userId) {
+      return res.status(403).json({ error: "Forbidden: Cannot update another user's preferences" });
+    }
+    
     const { type, action, item } = req.body; // type: 'like' | 'dislike', action: 'add' | 'remove', item: string
     
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);

@@ -4,11 +4,13 @@ import * as schema from '../db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import { getAuthCookieConfig } from '../utils/cookie-config';
+import { AuthenticatedRequest } from '../middleware/auth';
 
 const tenantManager = new TenantDatabaseManager();
 
-// Helper to generate an opaque token for DB storage
-const generateToken = () => crypto.randomBytes(32).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_fallback_key_12345';
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -63,18 +65,31 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const user = userResult[0];
-    const sessionToken = generateToken();
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    const sessionId = crypto.randomUUID();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
 
     // Persist session
     await client.insert(schema.sessions).values({
-      id: crypto.randomUUID(),
+      id: sessionId,
       token: sessionToken,
       userId: user.id,
       expiresAt,
       createdAt: new Date(),
     });
+
+    // Sign JWT
+    const jwtToken = jwt.sign(
+      { userId: user.id, sessionId },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Set HttpOnly Cookie
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieConfig = getAuthCookieConfig({ isProduction }, 7 * 24 * 60 * 60 * 1000);
+    res.cookie('access_token', jwtToken, cookieConfig);
 
     res.json({ 
       token: sessionToken, 
@@ -88,28 +103,48 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const getMe = async (req: Request, res: Response) => {
+export const logout = async (req: Request, res: Response) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' });
-    }
-
-    const token = authHeader.split(' ')[1];
+    const authReq = req as AuthenticatedRequest;
     const { client } = tenantManager.getGlobalClient();
 
-    // Find session
-    const sessionResult = await client
-      .select()
-      .from(schema.sessions)
-      .where(eq(schema.sessions.token, token))
-      .limit(1);
+    if (authReq.user?.sessionId) {
+      await client
+        .delete(schema.sessions)
+        .where(eq(schema.sessions.id, authReq.user.sessionId));
+    } else {
+      const token = req.cookies?.access_token;
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, JWT_SECRET) as { sessionId: string };
+          await client
+            .delete(schema.sessions)
+            .where(eq(schema.sessions.id, decoded.sessionId));
+        } catch (e) {
+          // Token is invalid/expired, nothing to delete from DB
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Logout db session cleanup error:', error);
+  }
 
-    if (sessionResult.length === 0 || new Date() > sessionResult[0].expiresAt) {
-      return res.status(401).json({ error: 'Session expired or invalid' });
+  const isProduction = process.env.NODE_ENV === 'production';
+  const cookieConfig = getAuthCookieConfig({ isProduction }, 0);
+  res.clearCookie('access_token', cookieConfig);
+
+  res.json({ success: true, message: 'Logged out successfully' });
+};
+
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const userId = sessionResult[0].userId;
+    const { client } = tenantManager.getGlobalClient();
+    const userId = authReq.user.userId;
 
     // Find user
     const userResult = await client
@@ -137,12 +172,14 @@ export const getMe = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: Request, res: Response) => {
   try {
-    const { userId, name } = req.body;
-    const { client } = tenantManager.getGlobalClient();
-
-    if (!userId || !name) {
-      return res.status(400).json({ error: 'User ID and name are required' });
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
     }
+
+    const userId = authReq.user.userId;
+    const { name } = req.body;
+    const { client } = tenantManager.getGlobalClient();
 
     await client
       .update(schema.users)

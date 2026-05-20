@@ -1,10 +1,10 @@
-
 import { AIProvider } from "./provider-interface";
 import { GeminiProvider } from "./gemini-provider";
 import { OpenAIProvider } from "./openai-provider";
 import { TenantDatabaseManager } from "../../../tenant-manager";
 import * as schema from "../../../db/schema";
 import { eq, and } from "drizzle-orm";
+import { decrypt } from "../../../utils/crypto";
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -28,9 +28,10 @@ export async function getLLMProvider(tenantId?: string): Promise<AIProvider> {
 
       if (activeConfig) {
         console.log(`[LLM Factory] Using DB config "${activeConfig.label}" for tenant ${tenantId}`);
+        const decryptedKey = decrypt(activeConfig.apiKey);
         const provider = activeConfig.provider === "gemini"
-          ? new GeminiProvider(activeConfig.apiKey, activeConfig.modelName)
-          : new OpenAIProvider(activeConfig.apiKey, activeConfig.modelName, activeConfig.baseUrl || undefined);
+          ? new GeminiProvider(decryptedKey, activeConfig.modelName)
+          : new OpenAIProvider(decryptedKey, activeConfig.modelName, activeConfig.baseUrl || undefined);
         
         _providerCache[tenantId] = provider;
         return provider;

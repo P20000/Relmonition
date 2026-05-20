@@ -37,16 +37,21 @@ export const tenants = sqliteTable('tenants', {
   connectionCode: text('connection_code').notNull().unique(),
   tenantDbUrl: text('tenant_db_url'), // For specific DB-level isolation
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }),
 });
 
 // The join table between users and connection tenants
 export const tenantMembers = sqliteTable('tenant_members', {
+  id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
   tenantId: text('tenant_id').notNull(),
-  role: text('role').notNull(),          // 'owner' | 'member'
+  role: text('role').notNull(),          // 'owner' | 'partner'
   label: text('label'),                  // e.g. 'Partner 1'
+  status: text('status').default('active'), // 'active' | 'inactive'
   joinedAt: integer('joined_at', { mode: 'timestamp' }).notNull(),
-});
+}, (table) => ({
+  tenantUserIdx: uniqueIndex('tenant_member_user_idx').on(table.tenantId, table.userId),
+}));
 
 // ----------------------------------------------------
 // TENANT DATA MODELS
@@ -63,6 +68,7 @@ export const journalEntries = sqliteTable('journal_entries', {
   sentimentScore: integer('sentiment_score'), // -1 to 1 scale
   category: text('category'), // 'conflict', 'appreciation', 'repair'
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }),
 });
 
 // 2. New: Mood Logs (For "Mood Trend" graphs on the dashboard)
@@ -72,6 +78,7 @@ export const moodLogs = sqliteTable('mood_logs', {
   moodValue: integer('mood_value').notNull(), // 1-10
   label: text('label'), // 'happy', 'stressed', 'anxious'
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }),
 });
 
 // 3. New: Interaction Metrics (For the "Gottman Connection Meter")
@@ -86,6 +93,7 @@ export const interactionMetrics = sqliteTable('interaction_metrics', {
   averageSentiment: integer('average_sentiment').default(50), // 0-100 scale
   totalEntries: integer('total_entries').default(0),
   date: integer('date', { mode: 'timestamp' }).notNull(), // Daily aggregate
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }),
 });
 
 // 4. New: AI Insights (Cache the AI output for fast dashboard loading)
@@ -116,6 +124,7 @@ export const chatUploads = sqliteTable('chat_uploads', {
   processed: integer('processed', { mode: 'boolean' }).default(false),
   processingProgress: integer('processing_progress').default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }),
 });
 export const aiProviderConfigs = sqliteTable('ai_provider_configs', {
   id: text('id').primaryKey(),
@@ -139,6 +148,7 @@ export const coachConversations = sqliteTable('coach_conversations', {
   userId: text('user_id').notNull(),
   title: text('title').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }),
 });
 
 export const coachMessages = sqliteTable('coach_messages', {
@@ -188,4 +198,19 @@ export const compatibilityInsights = sqliteTable('compatibility_insights', {
   summary: text('summary').notNull(),
   growthOpportunities: text('growth_opportunities').notNull().default('[]'), // JSON array string
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// ----------------------------------------------------
+// AUDITING & COMPLIANCE
+// ----------------------------------------------------
+export const auditLogs = sqliteTable('audit_logs', {
+  id: text('id').primaryKey(),
+  userId: text('user_id'),
+  tenantId: text('tenant_id'),
+  action: text('action').notNull(),
+  resource: text('resource'),
+  ip: text('ip'),
+  userAgent: text('user_agent'),
+  statusCode: integer('status_code'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });

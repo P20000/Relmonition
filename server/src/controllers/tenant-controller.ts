@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { TenantDatabaseManager } from '../tenant-manager';
 import * as schema from '../db/schema';
-import { eq, desc, asc, and, sql, gte, lte } from 'drizzle-orm';
+import { eq, desc, asc, and, sql, gte, lte, isNull } from 'drizzle-orm';
 import crypto from 'crypto';
 
 const tenantManager = new TenantDatabaseManager();
@@ -38,6 +38,7 @@ export const createTenant = async (req: Request, res: Response) => {
     });
 
     await client.insert(schema.tenantMembers).values({
+      id: crypto.randomUUID(),
       userId,
       tenantId,
       role: 'owner',
@@ -73,6 +74,7 @@ export const joinTenant = async (req: Request, res: Response) => {
     const tenantId = tenants[0].id;
 
     await client.insert(schema.tenantMembers).values({
+      id: crypto.randomUUID(),
       userId,
       tenantId,
       role: 'member',
@@ -195,11 +197,14 @@ export const getDashboardData = async (req: Request, res: Response) => {
   }
 };
 
+import { AuthenticatedRequest } from '../middleware/auth';
+import { AuthorizedRequest } from '../middleware/authorize';
+
 // ─── Single Tenant ────────────────────────────────────────────────────────────
 
 export const getTenantData = async (req: Request, res: Response) => {
   try {
-    const tenantId = String(req.params.tenantId);
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     res.json({ message: `Data for tenant ${tenantId}` });
   } catch (error) {
     res.status(500).json({ error: 'Failed to retrieve tenant data' });
@@ -215,12 +220,22 @@ export const getTenantData = async (req: Request, res: Response) => {
 export const getUserTenants = async (req: Request, res: Response) => {
   try {
     const userId = String(req.params.userId);
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user || authReq.user.userId !== userId) {
+      return res.status(403).json({ error: "Forbidden: Cannot access another user's tenants" });
+    }
+
     const { client } = tenantManager.getGlobalClient();
 
     const memberships = await client
       .select()
       .from(schema.tenantMembers)
-      .where(eq(schema.tenantMembers.userId, userId));
+      .where(
+        and(
+          eq(schema.tenantMembers.userId, userId),
+          eq(schema.tenantMembers.status, 'active')
+        )
+      );
 
     if (memberships.length === 0) {
       return res.json([]);
@@ -233,7 +248,12 @@ export const getUserTenants = async (req: Request, res: Response) => {
         const tenantRecord = await client
           .select()
           .from(schema.tenants)
-          .where(eq(schema.tenants.id, tenantId))
+          .where(
+            and(
+              eq(schema.tenants.id, tenantId),
+              isNull(schema.tenants.deletedAt)
+            )
+          )
           .limit(1);
 
         if (!tenantRecord[0]) return null;
@@ -241,7 +261,12 @@ export const getUserTenants = async (req: Request, res: Response) => {
         const members = await client
           .select()
           .from(schema.tenantMembers)
-          .where(eq(schema.tenantMembers.tenantId, tenantId));
+          .where(
+            and(
+              eq(schema.tenantMembers.tenantId, tenantId),
+              eq(schema.tenantMembers.status, 'active')
+            )
+          );
 
         return {
           ...tenantRecord[0],
@@ -274,19 +299,8 @@ export const getUserTenants = async (req: Request, res: Response) => {
  */
 export const regenerateConnectionCode = async (req: Request, res: Response) => {
   try {
-    const tenantId = String(req.params.tenantId);
-    const userId = String(req.body.userId);
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     const { client } = tenantManager.getGlobalClient();
-
-    const membership = await client
-      .select()
-      .from(schema.tenantMembers)
-      .where(and(eq(schema.tenantMembers.tenantId, tenantId), eq(schema.tenantMembers.userId, userId)))
-      .limit(1);
-
-    if (!membership[0] || membership[0].role !== 'owner') {
-      return res.status(403).json({ error: 'Only the owner can regenerate the connection code' });
-    }
 
     const newCode = generateConnectionCode();
     await client
@@ -308,13 +322,36 @@ export const regenerateConnectionCode = async (req: Request, res: Response) => {
  */
 export const leaveTenant = async (req: Request, res: Response) => {
   try {
-    const tenantId = String(req.params.tenantId);
-    const userId = String(req.body.userId);
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user!.userId;
     const { client } = tenantManager.getGlobalClient();
 
+    // Verify role is not owner
+    const membership = await client
+      .select()
+      .from(schema.tenantMembers)
+      .where(
+        and(
+          eq(schema.tenantMembers.tenantId, tenantId),
+          eq(schema.tenantMembers.userId, userId)
+        )
+      )
+      .limit(1);
+
+    if (membership[0]?.role === 'owner') {
+      return res.status(400).json({ error: 'Owner cannot leave the tenant. Delete the tenant instead.' });
+    }
+
     await client
-      .delete(schema.tenantMembers)
-      .where(and(eq(schema.tenantMembers.tenantId, tenantId), eq(schema.tenantMembers.userId, userId)));
+      .update(schema.tenantMembers)
+      .set({ status: 'inactive' }) // soft delete membership
+      .where(
+        and(
+          eq(schema.tenantMembers.tenantId, tenantId),
+          eq(schema.tenantMembers.userId, userId)
+        )
+      );
 
     res.json({ message: 'Left tenant successfully' });
   } catch (error: any) {
@@ -326,27 +363,20 @@ export const leaveTenant = async (req: Request, res: Response) => {
 
 /**
  * DELETE /api/v1/tenant/:tenantId
- * Owner only: permanently deletes the tenant and all its data.
+ * Owner only: soft-deletes the tenant.
  */
 export const deleteTenant = async (req: Request, res: Response) => {
   try {
-    const tenantId = String(req.params.tenantId);
-    const userId = String(req.body.userId);
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     const { client } = tenantManager.getGlobalClient();
 
-    const membership = await client
-      .select()
-      .from(schema.tenantMembers)
-      .where(and(eq(schema.tenantMembers.tenantId, tenantId), eq(schema.tenantMembers.userId, userId)))
-      .limit(1);
+    // Soft-delete the tenant
+    await client
+      .update(schema.tenants)
+      .set({ deletedAt: new Date() })
+      .where(eq(schema.tenants.id, tenantId));
 
-    if (!membership[0] || membership[0].role !== 'owner') {
-      return res.status(403).json({ error: 'Only the owner can delete this relationship' });
-    }
-
-    await tenantManager.executeRightToBeForgotten(tenantId);
-
-    res.json({ message: 'Tenant deleted successfully' });
+    res.json({ message: 'Tenant marked for deletion successfully' });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to delete tenant', details: error.message });
   }

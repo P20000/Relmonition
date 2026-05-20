@@ -30,7 +30,9 @@ export type TenantWithMembers = {
 };
 
 export async function getUserTenants(userId: string): Promise<TenantWithMembers[]> {
-  const res = await fetch(`${API_URL}/tenant/user/${userId}`);
+  const res = await fetch(`${API_URL}/tenant/user/${userId}`, {
+    credentials: 'include'
+  });
   if (!res.ok) return [];
   const data: any[] = await res.json();
   // Normalize the connectionCode field so components can use either alias
@@ -46,6 +48,7 @@ export async function createTenant(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, tenantName, label }),
+    credentials: 'include'
   });
   if (!res.ok) {
     const err = await res.json();
@@ -64,6 +67,7 @@ export async function joinTenant(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, connectionCode, label }),
+    credentials: 'include'
   });
   if (!res.ok) {
     const err = await res.json();
@@ -81,6 +85,7 @@ export async function regenerateConnectionCode(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId }),
+    credentials: 'include'
   });
   if (!res.ok) {
     const err = await res.json();
@@ -95,6 +100,7 @@ export async function leaveTenant(tenantId: string, userId: string): Promise<voi
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId }),
+    credentials: 'include'
   });
   if (!res.ok) {
     const err = await res.json();
@@ -107,6 +113,7 @@ export async function deleteTenant(tenantId: string, userId: string): Promise<vo
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId }),
+    credentials: 'include'
   });
   if (!res.ok) {
     const err = await res.json();

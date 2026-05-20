@@ -37,3 +37,8 @@ hpa:
   minReplicas: 2
   maxReplicas: 5
   targetCPUUtilizationPercentage: 80
+
+geminiApiKey: ""
+jwtSecret: ""
+encryptionKey: ""
+nodeEnv: "production"

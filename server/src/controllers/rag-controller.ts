@@ -1,18 +1,20 @@
 import { Request, Response } from 'express';
 import { queryRelationshipMemory, embedAndStoreJournalEntry } from '../services/ai/rag-service';
+import { AuthorizedRequest } from '../middleware/authorize';
 
 /**
  * POST /api/v1/rag/query
- * Body: { coupleId: string, query: string, mode?: 'retrieval' | 'exploration' }
+ * Body: { query: string, mode?: 'retrieval' | 'exploration' }
  *
  * Returns: { answer, sources, mode }
  */
 export const ragQuery = async (req: Request, res: Response) => {
   try {
-    const { tenantId, query, mode = 'retrieval' } = req.body;
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const { query, mode = 'retrieval' } = req.body;
 
-    if (!tenantId || !query) {
-      return res.status(400).json({ error: 'tenantId and query are required.' });
+    if (!query) {
+      return res.status(400).json({ error: 'Query is required.' });
     }
 
     if (mode !== 'retrieval' && mode !== 'exploration') {
@@ -29,16 +31,17 @@ export const ragQuery = async (req: Request, res: Response) => {
 
 /**
  * POST /api/v1/rag/embed
- * Body: { tenantId: string, entryId: string, content: string }
+ * Body: { entryId: string, content: string }
  *
  * Manually trigger embedding for a journal entry (also called internally on-write).
  */
 export const ragEmbed = async (req: Request, res: Response) => {
   try {
-    const { tenantId, entryId, content } = req.body;
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const { entryId, content } = req.body;
 
-    if (!tenantId || !entryId || !content) {
-      return res.status(400).json({ error: 'tenantId, entryId, and content are required.' });
+    if (!entryId || !content) {
+      return res.status(400).json({ error: 'entryId and content are required.' });
     }
 
     await embedAndStoreJournalEntry(tenantId, entryId, content);

@@ -1,10 +1,11 @@
-
 import { Request, Response } from 'express';
 import { TenantDatabaseManager } from '../tenant-manager';
 import * as schema from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { clearProviderCache } from '../services/ai/providers/factory';
+import { AuthorizedRequest } from '../middleware/authorize';
+import { encrypt, decrypt } from '../utils/crypto';
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -13,7 +14,7 @@ const tenantManager = new TenantDatabaseManager();
  * Returns all saved AI configurations for a tenant.
  */
 export async function getAIConfigs(req: Request, res: Response) {
-  const tenantId = req.params.tenantId as string;
+  const tenantId = (req as AuthorizedRequest).tenantId!;
   try {
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
     
@@ -21,13 +22,16 @@ export async function getAIConfigs(req: Request, res: Response) {
       .from(schema.aiProviderConfigs)
       .where(eq(schema.aiProviderConfigs.tenantId, tenantId));
     
-    // Mask API keys for security
-    const maskedConfigs = configs.map(c => ({
-      ...c,
-      apiKey: c.apiKey.length > 8 
-        ? `${c.apiKey.slice(0, 4)}...${c.apiKey.slice(-4)}` 
-        : "****"
-    }));
+    // Decrypt and mask API keys for security display
+    const maskedConfigs = configs.map(c => {
+      const decryptedKey = decrypt(c.apiKey);
+      return {
+        ...c,
+        apiKey: decryptedKey.length > 8 
+          ? `${decryptedKey.slice(0, 4)}...${decryptedKey.slice(-4)}` 
+          : "****"
+      };
+    });
 
     res.json(maskedConfigs);
   } catch (error) {
@@ -41,7 +45,7 @@ export async function getAIConfigs(req: Request, res: Response) {
  * Adds a new AI configuration.
  */
 export async function createAIConfig(req: Request, res: Response) {
-  const tenantId = req.params.tenantId as string;
+  const tenantId = (req as AuthorizedRequest).tenantId!;
   const { label, provider, apiKey, baseUrl, modelName } = req.body;
 
   if (!label || !provider || !apiKey || !modelName) {
@@ -56,7 +60,7 @@ export async function createAIConfig(req: Request, res: Response) {
       tenantId,
       label,
       provider,
-      apiKey, // Stored as plain text for now, but masked in GET
+      apiKey: encrypt(apiKey), // Encrypt at rest using AES-256-GCM
       baseUrl,
       modelName,
       isActive: false,
@@ -76,7 +80,7 @@ export async function createAIConfig(req: Request, res: Response) {
  * Sets a configuration as active and deactivates others for the tenant.
  */
 export async function activateAIConfig(req: Request, res: Response) {
-  const tenantId = req.params.tenantId as string;
+  const tenantId = (req as AuthorizedRequest).tenantId!;
   const configId = req.params.configId as string;
 
   try {
@@ -109,7 +113,7 @@ export async function activateAIConfig(req: Request, res: Response) {
  * DELETE /api/v1/tenant/:tenantId/ai-configs/:configId
  */
 export async function deleteAIConfig(req: Request, res: Response) {
-  const tenantId = req.params.tenantId as string;
+  const tenantId = (req as AuthorizedRequest).tenantId!;
   const configId = req.params.configId as string;
 
   try {

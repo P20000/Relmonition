@@ -6,6 +6,8 @@ import crypto from 'crypto';
 import { embedAndStoreJournalEntry } from '../services/ai/rag-service';
 import { processJournalMetrics } from '../services/ai/metrics-service';
 import { checkAndSyncProfiles } from '../services/ai/profile-service';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { AuthorizedRequest } from '../middleware/authorize';
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -25,12 +27,8 @@ const DAILY_PROMPTS = [
 
 export const getDailyPrompt = async (req: Request, res: Response) => {
   try {
-    const tenantId = req.query.tenantId as string;
-    const userId = req.query.userId as string;
-
-    if (!tenantId || !userId) {
-      return res.status(400).json({ error: 'tenantId and userId are required' });
-    }
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const userId = (req as AuthenticatedRequest).user!.userId;
 
     const { client: globalClient } = tenantManager.getGlobalClient();
     
@@ -63,12 +61,10 @@ export const getDailyPrompt = async (req: Request, res: Response) => {
 
 export const createEntry = async (req: Request, res: Response) => {
   try {
-    const { tenantId, userId, content, date, category } = req.body;
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const userId = (req as AuthenticatedRequest).user!.userId;
+    const { content, date, category } = req.body;
     const db = await getDb(tenantId);
-
-    if (!date) {
-        return res.status(400).json({ error: 'Date is required (YYYY-MM-DD)' });
-    }
 
     // Check if an entry already exists for this user on this specific date
     const existingEntries = await db
@@ -129,7 +125,7 @@ export const createEntry = async (req: Request, res: Response) => {
 
 export const getEntries = async (req: Request, res: Response) => {
   try {
-    const tenantId = String(req.params.tenantId);
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     const userId = req.query.userId ? String(req.query.userId) : undefined;
     const db = await getDb(tenantId);
 

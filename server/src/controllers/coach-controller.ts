@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { queryRelationshipMemoryStream, processChatUpload } from '../services/ai/rag-service';
 import AdmZip from 'adm-zip';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { AuthorizedRequest } from '../middleware/authorize';
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -14,8 +16,8 @@ const tenantManager = new TenantDatabaseManager();
 
 export const getConversations = async (req: Request, res: Response) => {
   try {
-    const tenantId = req.params.tenantId as string;
-    const userId = req.query.userId as string;
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const userId = (req as AuthenticatedRequest).user!.userId;
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
     const conversations = await db
@@ -35,7 +37,7 @@ export const getConversations = async (req: Request, res: Response) => {
 
 export const deleteConversation = async (req: Request, res: Response) => {
   try {
-    const tenantId = req.params.tenantId as string;
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     const sessionId = req.params.sessionId as string;
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
@@ -53,7 +55,7 @@ export const deleteConversation = async (req: Request, res: Response) => {
 
 export const getMessages = async (req: Request, res: Response) => {
   try {
-    const tenantId = req.params.tenantId as string;
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     const sessionId = req.params.sessionId as string;
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
@@ -74,13 +76,15 @@ export const getMessages = async (req: Request, res: Response) => {
 // ----------------------------------------------------
 
 export const streamChat = async (req: Request, res: Response) => {
-  let { tenantId, userId, sessionId, query, mode = 'retrieval' } = req.body;
-
-  if (!tenantId || !query) {
-    return res.status(400).json({ error: 'tenantId and query are required.' });
-  }
-
   try {
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const userId = (req as AuthenticatedRequest).user!.userId;
+    let { sessionId, query, mode = 'retrieval' } = req.body;
+
+    if (!query) {
+      return res.status(400).json({ error: 'Query is required.' });
+    }
+
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
     // 1. Ensure Session exists or create new
@@ -161,9 +165,10 @@ export const streamChat = async (req: Request, res: Response) => {
 };
 
 export const regenerateResponse = async (req: Request, res: Response) => {
-  const { tenantId, sessionId, mode = 'retrieval' } = req.body;
-
   try {
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const { sessionId, mode = 'retrieval' } = req.body;
+
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
     // 1. Get latest user message
@@ -192,9 +197,10 @@ export const regenerateResponse = async (req: Request, res: Response) => {
 };
 
 export const editLatestPrompt = async (req: Request, res: Response) => {
-  const { tenantId, sessionId, newQuery, mode = 'retrieval' } = req.body;
-
   try {
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const { sessionId, newQuery, mode = 'retrieval' } = req.body;
+
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
     // 1. Get latest messages
@@ -229,11 +235,9 @@ export const editLatestPrompt = async (req: Request, res: Response) => {
 
 export const uploadChatHistory = async (req: Request, res: Response) => {
   try {
-    const { tenantId, userId, fileName, fileContent, fileSize, strategy = 'append' } = req.body;
-
-    if (!tenantId || !userId || !fileName || !fileContent) {
-      return res.status(400).json({ error: 'Missing required fields for chat upload.' });
-    }
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const userId = (req as AuthenticatedRequest).user!.userId;
+    const { fileName, fileContent, fileSize, strategy = 'append' } = req.body;
 
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
@@ -259,6 +263,29 @@ export const uploadChatHistory = async (req: Request, res: Response) => {
       console.log(`[Coach] Extracting ZIP: ${fileName}`);
       const zip = new AdmZip(Buffer.from(fileContent, 'base64'));
       const zipEntries = zip.getEntries();
+
+      // ZIP Bomb / DOS Mitigations
+      const MAX_ZIP_FILES = 100;
+      const MAX_SINGLE_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      const MAX_TOTAL_UNCOMPRESSED_SIZE = 50 * 1024 * 1024; // 50MB
+      let totalUncompressedSize = 0;
+      let totalFiles = 0;
+
+      for (const entry of zipEntries) {
+        if (!entry.isDirectory) {
+          totalFiles++;
+          if (totalFiles > MAX_ZIP_FILES) {
+            return res.status(400).json({ error: 'ZIP archive contains too many files (limit is 100).' });
+          }
+          if (entry.header.size > MAX_SINGLE_FILE_SIZE) {
+            return res.status(400).json({ error: `File inside ZIP exceeds safe size limit of 10MB: ${entry.entryName}` });
+          }
+          totalUncompressedSize += entry.header.size;
+          if (totalUncompressedSize > MAX_TOTAL_UNCOMPRESSED_SIZE) {
+            return res.status(400).json({ error: 'ZIP archive total uncompressed size exceeds safe limit of 50MB.' });
+          }
+        }
+      }
 
       for (const entry of zipEntries) {
         // Strictly only .txt files as requested
@@ -317,7 +344,7 @@ export const uploadChatHistory = async (req: Request, res: Response) => {
 
 export const getUploadStatus = async (req: Request, res: Response) => {
   try {
-    const tenantId = req.params.tenantId as string;
+    const tenantId = (req as AuthorizedRequest).tenantId!;
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
     const uploads = await db.select().from(schema.chatUploads).where(eq(schema.chatUploads.tenantId, tenantId));
@@ -338,16 +365,17 @@ export const getUploadStatus = async (req: Request, res: Response) => {
 
 export const deleteContextUpload = async (req: Request, res: Response) => {
   try {
-    const { tenantId, uploadId } = req.params;
-    const { client: db } = await tenantManager.getDatabaseClient(tenantId as string);
+        const tenantId = (req as AuthorizedRequest).tenantId!;
+    const uploadId = String(req.params.uploadId);
+    const { client: db } = await tenantManager.getDatabaseClient(tenantId);
 
     // 1. Delete associated embeddings (manual cascade to be safe)
-    await db.delete(schema.embeddings).where(eq(schema.embeddings.chatUploadId, uploadId as string));
+    await db.delete(schema.embeddings).where(eq(schema.embeddings.chatUploadId, uploadId));
 
     // 2. Delete upload record
     await db.delete(schema.chatUploads).where(and(
-      eq(schema.chatUploads.id, uploadId as string),
-      eq(schema.chatUploads.tenantId, tenantId as string)
+      eq(schema.chatUploads.id, uploadId),
+      eq(schema.chatUploads.tenantId, tenantId)
     ));
 
     res.json({ message: 'Context fragment deleted successfully.' });

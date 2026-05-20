@@ -1,7 +1,7 @@
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import * as dbSchema from './db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 export class TenantDatabaseManager {
   private globalClient: ReturnType<typeof drizzle> | null = null;
@@ -91,6 +91,22 @@ export class TenantDatabaseManager {
     await client.delete(dbSchema.interactionMetrics).where(eq(dbSchema.interactionMetrics.tenantId, tenantId));
     await client.delete(dbSchema.aiInsights).where(eq(dbSchema.aiInsights.tenantId, tenantId));
     await client.delete(dbSchema.embeddings).where(eq(dbSchema.embeddings.tenantId, tenantId));
+    await client.delete(dbSchema.chatUploads).where(eq(dbSchema.chatUploads.tenantId, tenantId));
+    await client.delete(dbSchema.aiProviderConfigs).where(eq(dbSchema.aiProviderConfigs.tenantId, tenantId));
+    
+    // Clean up coach messages via subquery to conversations
+    const conversations = await client.select({ id: dbSchema.coachConversations.id })
+      .from(dbSchema.coachConversations)
+      .where(eq(dbSchema.coachConversations.tenantId, tenantId));
+    const conversationIds = conversations.map(c => c.id);
+    if (conversationIds.length > 0) {
+      await client.delete(dbSchema.coachMessages).where(inArray(dbSchema.coachMessages.conversationId, conversationIds));
+    }
+    await client.delete(dbSchema.coachConversations).where(eq(dbSchema.coachConversations.tenantId, tenantId));
+
+    await client.delete(dbSchema.relationshipHealthHistory).where(eq(dbSchema.relationshipHealthHistory.tenantId, tenantId));
+    await client.delete(dbSchema.partnerProfiles).where(eq(dbSchema.partnerProfiles.tenantId, tenantId));
+    await client.delete(dbSchema.compatibilityInsights).where(eq(dbSchema.compatibilityInsights.tenantId, tenantId));
     
     // Remove tenant mappings
     const globalClient = this.getGlobalClient().client;

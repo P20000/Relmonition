@@ -36,6 +36,10 @@ helm upgrade --install "couple-${TENANT_ID}" ./charts/relmonition-tenant -n "${N
   --set image.tag=latest \
   --set coupleId="${TENANT_ID}" \
   --set turso.connectionUrl="${TURSO_CONNECTION_URL}" \
-  --set turso.authToken="${TURSO_AUTH_TOKEN}"
+  --set turso.authToken="${TURSO_AUTH_TOKEN}" \
+  --set geminiApiKey="${GEMINI_API_KEY}" \
+  --set jwtSecret="${JWT_SECRET}" \
+  --set encryptionKey="${ENCRYPTION_KEY}" \
+  --set nodeEnv="production"
 
 echo "✅ Backend Deployment Successful for tenant ${TENANT_ID}!"

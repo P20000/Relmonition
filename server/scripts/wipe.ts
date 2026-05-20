@@ -16,14 +16,16 @@ async function wipeDatabase() {
     const client = createClient({ url, authToken });
 
     console.log("Fetching all tables...");
+    await client.execute("PRAGMA foreign_keys = OFF;");
     const tablesResult = await client.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
     const tables = tablesResult.rows.map((row) => row.name as string);
 
     for (const table of tables) {
         console.log(`Dropping table ${table}...`);
-        await client.execute(`DROP TABLE IF EXISTS ${table}`);
+        await client.execute(`DROP TABLE IF EXISTS "${table}"`);
     }
 
+    await client.execute("PRAGMA foreign_keys = ON;");
     console.log("Database wiped successfully!");
     process.exit(0);
 }

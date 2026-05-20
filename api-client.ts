@@ -35,12 +35,16 @@ const handleResponse = async (response: Response) => {
 
 export const apiClient = {
   async get(path: string) {
-    const response = await fetch(`${BASE_URL}${path}`);
+    const response = await fetch(`${BASE_URL}${path}`, {
+      credentials: 'include'
+    });
     return handleResponse(response);
   },
 
   async getTenantData(tenantId: string) {
-    const response = await fetch(`${BASE_URL}/tenant/${tenantId}`);
+    const response = await fetch(`${BASE_URL}/tenant/${tenantId}`, {
+      credentials: 'include'
+    });
     return handleResponse(response);
   },
 
@@ -49,6 +53,7 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(payload),
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
     });
     return handleResponse(response);
   },
@@ -58,6 +63,7 @@ export const apiClient = {
       method: 'PUT',
       body: payload ? JSON.stringify(payload) : undefined,
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
     });
     return handleResponse(response);
   },
@@ -67,6 +73,7 @@ export const apiClient = {
       method: 'PATCH',
       body: JSON.stringify(payload),
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
     });
     return handleResponse(response);
   },
@@ -74,6 +81,7 @@ export const apiClient = {
   async delete(path: string) {
     const response = await fetch(`${BASE_URL}${path}`, {
       method: 'DELETE',
+      credentials: 'include'
     });
     return handleResponse(response);
   },
@@ -90,7 +98,8 @@ export const apiClient = {
     const response = await fetch(`${BASE_URL}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      credentials: 'include'
     });
     return handleResponse(response);
   },
@@ -99,14 +108,23 @@ export const apiClient = {
     const response = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      credentials: 'include'
     });
     return handleResponse(response);
   },
 
-  async getMe(token: string): Promise<any> {
+  async logout(): Promise<any> {
+    const response = await fetch(`${BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  async getMe(): Promise<any> {
     const response = await fetch(`${BASE_URL}/auth/me`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      credentials: 'include'
     });
     return handleResponse(response);
   },
@@ -115,13 +133,16 @@ export const apiClient = {
     const response = await fetch(`${BASE_URL}/auth/update-profile`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, name })
+      body: JSON.stringify({ userId, name }),
+      credentials: 'include'
     });
     return handleResponse(response);
   },
 
   async getJournalPrompt(tenantId: string, userId: string): Promise<{ userName: string, partnerName: string, date: string }> {
-    const response = await fetch(`${BASE_URL}/journal/prompt?tenantId=${tenantId}&userId=${userId}`);
+    const response = await fetch(`${BASE_URL}/journal/prompt?tenantId=${tenantId}&userId=${userId}`, {
+      credentials: 'include'
+    });
     return handleResponse(response);
   },
 
@@ -130,6 +151,7 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(data),
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
     });
     return handleResponse(response);
   },
@@ -137,13 +159,17 @@ export const apiClient = {
   async getJournalEntries(tenantId: string, userId?: string): Promise<any[]> {
     const url = new URL(`${BASE_URL}/journal/${tenantId}/entries`);
     if (userId) url.searchParams.append('userId', userId);
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), {
+      credentials: 'include'
+    });
     return handleResponse(response);
   },
 
   // ─── AI Configuration (BYOK) ───────────────────────────────────────────────
   async getAIConfigs(tenantId: string) {
-    const response = await fetch(`${BASE_URL}/tenant/${tenantId}/ai-configs`);
+    const response = await fetch(`${BASE_URL}/tenant/${tenantId}/ai-configs`, {
+      credentials: 'include'
+    });
     return handleResponse(response);
   },
 
@@ -154,6 +180,7 @@ export const apiClient = {
   async activateAIConfig(tenantId: string, configId: string) {
     const response = await fetch(`${BASE_URL}/tenant/${tenantId}/ai-configs/${configId}/activate`, {
       method: 'PUT',
+      credentials: 'include'
     });
     return handleResponse(response);
   },
@@ -161,6 +188,7 @@ export const apiClient = {
   async deleteAIConfig(tenantId: string, configId: string) {
     const response = await fetch(`${BASE_URL}/tenant/${tenantId}/ai-configs/${configId}`, {
       method: 'DELETE',
+      credentials: 'include'
     });
     return handleResponse(response);
   }

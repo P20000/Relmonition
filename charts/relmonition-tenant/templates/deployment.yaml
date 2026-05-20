@@ -45,3 +45,11 @@ spec:
             value: {{ .Values.turso.connectionUrl | quote }}
           - name: TURSO_AUTH_TOKEN
             value: {{ .Values.turso.authToken | quote }}
+          - name: GEMINI_API_KEY
+            value: {{ .Values.geminiApiKey | quote }}
+          - name: JWT_SECRET
+            value: {{ .Values.jwtSecret | quote }}
+          - name: ENCRYPTION_KEY
+            value: {{ .Values.encryptionKey | quote }}
+          - name: NODE_ENV
+            value: {{ .Values.nodeEnv | quote }}
