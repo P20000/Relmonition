@@ -25,9 +25,9 @@ export const auditLogger = async (req: AuthenticatedRequest, res: Response, next
       
       const userId = req.user?.userId || null;
       const tenantId = (req as AuthorizedRequest).tenantId || 
-                       req.params.tenantId || 
-                       req.body.tenantId || 
-                       req.query.tenantId || 
+                       req.params?.tenantId || 
+                       req.body?.tenantId || 
+                       req.query?.tenantId || 
                        null;
 
       const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || null;

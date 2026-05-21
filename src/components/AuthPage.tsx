@@ -1,9 +1,10 @@
 "use client";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { apiClient } from '../../api-client';
 import { useAuth } from '../context/AuthContext';
+import { LogoIcon } from './ui/LogoIcon';
 
 export function AuthPage() {
   const [isSignup, setIsSignup] = useState(false);
@@ -59,7 +60,7 @@ export function AuthPage() {
             className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center"
             aria-hidden="true"
           >
-            <Heart className="w-10 h-10 text-primary-foreground" />
+            <LogoIcon className="w-10 h-10 text-primary-foreground" />
           </div>
         </div>
 

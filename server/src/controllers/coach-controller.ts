@@ -10,6 +10,20 @@ import { AuthorizedRequest } from '../middleware/authorize';
 
 const tenantManager = new TenantDatabaseManager();
 
+// Helper to validate session ownership
+const validateSession = async (db: any, sessionId: string, tenantId: string, userId: string): Promise<boolean> => {
+  const session = await db
+    .select()
+    .from(schema.coachConversations)
+    .where(and(
+      eq(schema.coachConversations.id, sessionId),
+      eq(schema.coachConversations.tenantId, tenantId),
+      eq(schema.coachConversations.userId, userId)
+    ))
+    .limit(1);
+  return session.length > 0;
+};
+
 // ----------------------------------------------------
 // SESSION MANAGEMENT
 // ----------------------------------------------------
@@ -38,8 +52,14 @@ export const getConversations = async (req: Request, res: Response) => {
 export const deleteConversation = async (req: Request, res: Response) => {
   try {
     const tenantId = (req as AuthorizedRequest).tenantId!;
+    const userId = (req as AuthenticatedRequest).user!.userId;
     const sessionId = req.params.sessionId as string;
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
+
+    const isOwner = await validateSession(db, sessionId, tenantId, userId);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Access Denied: Invalid session context.' });
+    }
 
     await db.delete(schema.coachMessages).where(eq(schema.coachMessages.conversationId, sessionId));
     await db.delete(schema.coachConversations).where(and(
@@ -56,8 +76,14 @@ export const deleteConversation = async (req: Request, res: Response) => {
 export const getMessages = async (req: Request, res: Response) => {
   try {
     const tenantId = (req as AuthorizedRequest).tenantId!;
+    const userId = (req as AuthenticatedRequest).user!.userId;
     const sessionId = req.params.sessionId as string;
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
+
+    const isOwner = await validateSession(db, sessionId, tenantId, userId);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Access Denied: Invalid session context.' });
+    }
 
     const messages = await db
       .select()
@@ -97,6 +123,11 @@ export const streamChat = async (req: Request, res: Response) => {
         title: query.substring(0, 40) + '...',
         createdAt: new Date()
       });
+    } else {
+      const isOwner = await validateSession(db, sessionId, tenantId, userId);
+      if (!isOwner) {
+        return res.status(403).json({ error: 'Access Denied: Invalid session context.' });
+      }
     }
 
     // 2. Save User Message
@@ -167,9 +198,15 @@ export const streamChat = async (req: Request, res: Response) => {
 export const regenerateResponse = async (req: Request, res: Response) => {
   try {
     const tenantId = (req as AuthorizedRequest).tenantId!;
+    const userId = (req as AuthenticatedRequest).user!.userId;
     const { sessionId, mode = 'retrieval' } = req.body;
 
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
+
+    const isOwner = await validateSession(db, sessionId, tenantId, userId);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Access Denied: Invalid session context.' });
+    }
 
     // 1. Get latest user message
     const history = await db
@@ -199,9 +236,15 @@ export const regenerateResponse = async (req: Request, res: Response) => {
 export const editLatestPrompt = async (req: Request, res: Response) => {
   try {
     const tenantId = (req as AuthorizedRequest).tenantId!;
+    const userId = (req as AuthenticatedRequest).user!.userId;
     const { sessionId, newQuery, mode = 'retrieval' } = req.body;
 
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
+
+    const isOwner = await validateSession(db, sessionId, tenantId, userId);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Access Denied: Invalid session context.' });
+    }
 
     // 1. Get latest messages
     const history = await db

@@ -20,7 +20,7 @@ const getLocalDateString = () => {
 
 type JournalProps = {
     userId: string;
-    tenantId: string;
+    tenantId: string | null;
 };
 
 type JournalEntry = {
@@ -75,10 +75,11 @@ export function Journal({ userId, tenantId }: JournalProps) {
     }, {} as Record<string, JournalEntry>);
 
     useEffect(() => {
-        fetchInitialData();
+        if (tenantId) fetchInitialData();
     }, [tenantId]);
 
     const fetchInitialData = async () => {
+        if (!tenantId || !userId) return;
         try {
             setLoadingHeader(true);
             setLoadingEntries(true);

@@ -13,14 +13,18 @@ import {
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/authorize';
 import { validateBody, uploadChatSchema } from '../utils/validation';
+import { rateLimiter } from '../middleware/rate-limiter';
 
 const router = Router();
+
+const aiLimiter = rateLimiter(20, 15 * 60 * 1000); // 20 requests per 15 mins
+const uploadLimiter = rateLimiter(5, 15 * 60 * 1000); // 5 uploads per 15 mins
 
 // Secure all coach endpoints with session authentication
 router.use(authenticate);
 
 // POST /api/v1/coach/upload
-router.post('/upload', authorize(), validateBody(uploadChatSchema), uploadChatHistory);
+router.post('/upload', uploadLimiter, authorize(), validateBody(uploadChatSchema), uploadChatHistory);
 
 // GET /api/v1/coach/upload-status/:tenantId
 router.get('/upload-status/:tenantId', authorize(), getUploadStatus);
@@ -32,8 +36,8 @@ router.delete('/context/:tenantId/:uploadId', authorize(), deleteContextUpload);
 router.get('/sessions/:tenantId', authorize(), getConversations);
 router.delete('/sessions/:tenantId/:sessionId', authorize(), deleteConversation);
 router.get('/sessions/:tenantId/:sessionId/messages', authorize(), getMessages);
-router.post('/chat/stream', authorize(), streamChat);
-router.post('/chat/regenerate', authorize(), regenerateResponse);
-router.post('/chat/edit', authorize(), editLatestPrompt);
+router.post('/chat/stream', aiLimiter, authorize(), streamChat);
+router.post('/chat/regenerate', aiLimiter, authorize(), regenerateResponse);
+router.post('/chat/edit', aiLimiter, authorize(), editLatestPrompt);
 
 export default router;

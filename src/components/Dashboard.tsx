@@ -408,7 +408,9 @@ export function Dashboard() {
         const url = new URL(`${API_URL}/dashboard/${tenantId}`);
         if (userId) url.searchParams.append('userId', userId);
         
-        const response = await fetch(url.toString());
+        const response = await fetch(url.toString(), {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Failed to fetch data');
         setData(await response.json());
       } catch (err: any) {

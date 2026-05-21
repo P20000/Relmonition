@@ -41,7 +41,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       decoded = jwt.verify(token, JWT_SECRET) as { userId: string; sessionId: string };
     } catch (err) {
       // If it looks like an opaque token (e.g. hex string from seed or legacy clients)
-      if (typeof token === 'string' && token.length === 64) {
+      if (typeof token === 'string' && /^[0-9a-f]{64}$/.test(token)) {
         isOpaqueToken = true;
       } else {
         return res.status(401).json({ error: 'Session invalid or expired' });
@@ -113,7 +113,7 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
     try {
       decoded = jwt.verify(token, JWT_SECRET) as { userId: string; sessionId: string };
     } catch (err) {
-      if (typeof token === 'string' && token.length === 64) {
+      if (typeof token === 'string' && /^[0-9a-f]{64}$/.test(token)) {
         isOpaqueToken = true;
       }
     }

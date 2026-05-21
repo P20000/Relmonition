@@ -23,7 +23,7 @@ export const authorize = (requiredRole?: 'owner' | 'partner') => {
       }
 
       const { userId } = req.user;
-      const tenantId = req.params.tenantId || req.body.tenantId || req.query.tenantId;
+      const tenantId = req.params.tenantId || req.body?.tenantId || req.query.tenantId as string | undefined;
 
       if (!tenantId || typeof tenantId !== 'string') {
         return res.status(400).json({ error: 'Tenant ID is required for this operation' });
@@ -71,9 +71,12 @@ export const authorize = (requiredRole?: 'owner' | 'partner') => {
       (req as AuthorizedRequest).tenantId = tenantId;
 
       next();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Authorization middleware error:', err);
-      return res.status(500).json({ error: 'Authorization service error' });
+      return res.status(500).json({ 
+        error: 'Authorization service error',
+        details: err?.message || String(err)
+      });
     }
   };
 };

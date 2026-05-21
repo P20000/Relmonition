@@ -45,7 +45,15 @@ export const signup = async (req: Request, res: Response) => {
 
     res.status(201).json({ message: 'User created successfully', userId });
   } catch (error: any) {
-    if (error.message?.includes('UNIQUE constraint failed: users.email')) {
+    const msg = error.message || String(error);
+    const isUniqueConstraint = 
+      msg.includes('UNIQUE') || 
+      msg.includes('constraint failed') || 
+      msg.includes('Constraint failed') || 
+      error.code === 'SQLITE_CONSTRAINT' || 
+      error.code === 'SQLITE_CONSTRAINT_UNIQUE';
+
+    if (isUniqueConstraint) {
       return res.status(409).json({ error: 'Email already exists' });
     }
     res.status(500).json({ error: 'Signup failed', details: error.message });

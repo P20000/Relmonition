@@ -1,5 +1,7 @@
-import express from 'express';
 import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
 import cors from 'cors';
 
 import tenantRoutes from './routes/tenant-routes';
@@ -10,8 +12,6 @@ import coachRoutes from './routes/coach-routes';
 import aiConfigRoutes from './routes/ai-config-routes';
 import profileRoutes from './routes/profile-routes';
 import { getDashboardData } from './controllers/tenant-controller';
-
-dotenv.config();
 
 import dns from 'dns';
 
@@ -70,8 +70,8 @@ app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 });
-app.use(auditLogger);
 app.use(express.json({ limit: '50mb' }));
+app.use(auditLogger);
 
 import { authenticate } from './middleware/auth';
 import { authorize } from './middleware/authorize';

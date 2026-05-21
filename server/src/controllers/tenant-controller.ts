@@ -3,6 +3,8 @@ import { TenantDatabaseManager } from '../tenant-manager';
 import * as schema from '../db/schema';
 import { eq, desc, asc, and, sql, gte, lte, isNull } from 'drizzle-orm';
 import crypto from 'crypto';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { AuthorizedRequest } from '../middleware/authorize';
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -20,8 +22,8 @@ const generateConnectionCode = () =>
 
 export const createTenant = async (req: Request, res: Response) => {
   try {
-    const { userId, tenantName, label } = req.body as {
-      userId: string;
+    const userId = (req as AuthenticatedRequest).user!.userId;
+    const { tenantName, label } = req.body as {
       tenantName: string;
       label?: string;
     };
@@ -54,8 +56,8 @@ export const createTenant = async (req: Request, res: Response) => {
 
 export const joinTenant = async (req: Request, res: Response) => {
   try {
-    const { userId, connectionCode, label } = req.body as {
-      userId: string;
+    const userId = (req as AuthenticatedRequest).user!.userId;
+    const { connectionCode, label } = req.body as {
       connectionCode: string;
       label?: string;
     };
@@ -197,8 +199,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
   }
 };
 
-import { AuthenticatedRequest } from '../middleware/auth';
-import { AuthorizedRequest } from '../middleware/authorize';
+
 
 // ─── Single Tenant ────────────────────────────────────────────────────────────
 

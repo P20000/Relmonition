@@ -271,7 +271,8 @@ export function AICoach() {
           query,
           mode,
         }),
-        signal: abortControllerRef.current.signal
+        signal: abortControllerRef.current.signal,
+        credentials: 'include'
       });
 
       if (!response.ok) throw new Error('Stream failed');
@@ -312,7 +313,8 @@ export function AICoach() {
           tenantId: activeTenantId,
           sessionId: activeSessionId,
           mode,
-        })
+        }),
+        credentials: 'include'
       });
 
       // Remove last assistant message from UI to refresh it
@@ -344,7 +346,8 @@ export function AICoach() {
           sessionId: activeSessionId,
           newQuery: editInput,
           mode,
-        })
+        }),
+        credentials: 'include'
       });
 
       // Reset messages to the new point

@@ -3,6 +3,7 @@ import { LayoutDashboard, BookOpen, Brain, Menu, X, LogOut, Settings as Settings
 import { LogoIcon } from './ui/LogoIcon';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type NavigationProps = {
   activeView: 'dashboard' | 'journal' | 'coach' | 'settings' | 'personality';
@@ -35,7 +36,9 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <LogoIcon className="w-10 h-10 text-foreground" />
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center" aria-hidden="true">
+              <LogoIcon className="w-6 h-6 text-primary-foreground" />
+            </div>
             <div>
               <h1 className="text-xl">Relmonition</h1>
               <p className="text-xs text-muted-foreground hidden md:block">
@@ -52,13 +55,24 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
-                  className={`px-6 py-3 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${activeView === item.id
-                    ? 'bg-primary text-primary-foreground shadow-lg'
-                    : 'hover:bg-accent/50'
+                  className={`relative px-6 py-3 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${activeView === item.id
+                    ? 'text-primary-foreground'
+                    : 'text-foreground hover:bg-accent/50'
                     }`}
                   aria-current={activeView === item.id ? 'page' : undefined}
                 >
-                  <div className="flex items-center gap-2">
+                  <AnimatePresence>
+                    {activeView === item.id && (
+                      <motion.div
+                        initial={{ opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, scaleX: 1, scaleY: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
+                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                        className="absolute inset-0 bg-primary rounded-xl shadow-lg -z-10"
+                      />
+                    )}
+                  </AnimatePresence>
+                  <div className="relative z-10 flex items-center gap-2">
                     <Icon className="w-4 h-4" aria-hidden="true" />
                     <span>{item.label}</span>
                   </div>
@@ -106,13 +120,24 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
                     onNavigate(item.id);
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full px-4 py-3 rounded-xl transition-all text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${activeView === item.id
-                    ? 'bg-primary text-primary-foreground shadow-lg'
-                    : 'hover:bg-accent/50'
+                  className={`relative w-full px-4 py-3 rounded-xl transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${activeView === item.id
+                    ? 'text-primary-foreground'
+                    : 'text-foreground hover:bg-accent/50'
                     }`}
                   aria-current={activeView === item.id ? 'page' : undefined}
                 >
-                  <div className="flex items-center gap-3">
+                  <AnimatePresence>
+                    {activeView === item.id && (
+                      <motion.div
+                        initial={{ opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, scaleX: 1, scaleY: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
+                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                        className="absolute inset-0 bg-primary rounded-xl shadow-lg -z-10"
+                      />
+                    )}
+                  </AnimatePresence>
+                  <div className="relative z-10 flex items-center gap-3">
                     <Icon className="w-5 h-5" aria-hidden="true" />
                     <span>{item.label}</span>
                   </div>

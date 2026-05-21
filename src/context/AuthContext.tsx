@@ -70,7 +70,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoaded(true);
       })
       .catch(err => {
-        console.error('Failed to sync profile:', err);
+        // Do not log standard 401 unauthenticated check as a console error
+        if (err.message !== 'Authentication required') {
+          console.error('Failed to sync profile:', err);
+        }
         // Clear session since backend token validation failed
         logout();
         setIsLoaded(true);
