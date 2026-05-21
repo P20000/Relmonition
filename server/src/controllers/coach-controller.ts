@@ -7,6 +7,23 @@ import { queryRelationshipMemoryStream, processChatUpload } from '../services/ai
 import AdmZip from 'adm-zip';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { AuthorizedRequest } from '../middleware/authorize';
+import { Counter } from 'prom-client';
+
+// Tracks completed AI Coach stream interactions per tenant and mode.
+// A stream is counted only if it completed without abort (i.e., a full response was saved).
+const coachStreamsTotal = new Counter({
+  name: 'relmonition_coach_streams_total',
+  help: 'Total completed AI Coach stream interactions',
+  labelNames: ['tenant', 'mode'] as const,
+});
+
+// Tracks active (in-flight) AI Coach streams — decremented on finish/abort.
+// Use this as a real-time concurrency gauge in Grafana.
+const coachActiveStreams = new (require('prom-client').Gauge)({
+  name: 'relmonition_coach_active_streams',
+  help: 'Number of AI Coach SSE streams currently in flight',
+  labelNames: ['tenant'] as const,
+});
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -145,12 +162,17 @@ export const streamChat = async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
+    // Track this as an active in-flight stream
+    coachActiveStreams.inc({ tenant: tenantId });
+
     // Handle abrupt disconnection
     let isFinished = false;
     const abortController = new AbortController();
     
     req.on('close', async () => {
       abortController.abort();
+      // Decrement active streams gauge on disconnect
+      coachActiveStreams.dec({ tenant: tenantId });
       if (!isFinished) {
         try {
           // If generation didn't finish, remove the "orphaned" user message
@@ -185,6 +207,10 @@ export const streamChat = async (req: Request, res: Response) => {
         createdAt: new Date(),
       });
       isFinished = true;
+
+      // Decrement active gauge and increment completed counter
+      coachActiveStreams.dec({ tenant: tenantId });
+      coachStreamsTotal.inc({ tenant: tenantId, mode });
     }
 
     res.write('event: end\ndata: done\n\n');

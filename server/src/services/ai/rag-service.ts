@@ -4,6 +4,42 @@ import { TenantDatabaseManager } from '../../tenant-manager';
 import { getLLMProvider } from './providers/factory';
 import { eq, or, and, lt, gt } from 'drizzle-orm';
 import crypto from 'crypto';
+import { Counter, Histogram } from 'prom-client';
+
+// ─── Prometheus Metrics ───────────────────────────────────────────────────────
+
+/**
+ * Tracks the total number of AI requests (RAG + Coach) by type and tenant.
+ * Use this to see request volume and compare RAG vs Coach usage in Grafana.
+ */
+const aiRequestsTotal = new Counter({
+  name: 'relmonition_ai_requests_total',
+  help: 'Total AI calls (rag_query, coach_stream, exploration)',
+  labelNames: ['type', 'tenant'] as const,
+});
+
+/**
+ * End-to-end AI pipeline latency histogram (retrieval + generation combined).
+ * Enables P50/P95/P99 latency panels in Grafana for SLO tracking.
+ */
+const aiRequestDurationSeconds = new Histogram({
+  name: 'relmonition_ai_request_duration_seconds',
+  help: 'Full AI pipeline latency from query to first/last token',
+  labelNames: ['type', 'tenant'] as const,
+  buckets: [0.1, 0.5, 1, 2, 5, 10, 30],
+});
+
+/**
+ * Counts RAG document embedding operations (journal entries + chat upload chunks).
+ * Useful for tracking data ingestion throughput.
+ */
+const ragDocumentsProcessedTotal = new Counter({
+  name: 'relmonition_rag_documents_processed_total',
+  help: 'Total number of documents embedded and stored in the vector store',
+  labelNames: ['tenant', 'source'] as const,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -24,6 +60,9 @@ export async function queryRelationshipMemory(
   query: string,
   mode: 'retrieval' | 'exploration' = 'retrieval',
 ): Promise<RAGResponse> {
+  const callStart = Date.now();
+  const metricType = mode === 'retrieval' ? 'rag_query' : 'exploration';
+
   // Step 1: Get tenant DB client
   const { client } = await tenantManager.getDatabaseClient(tenantId);
 
@@ -81,6 +120,11 @@ RESPONSE:`;
   const answer = await provider.generateText(prompt, systemInstruction);
   const generationDuration = Date.now() - generationStart;
   console.log(`[RAG Telemetry] Generation completed: ${generationDuration}ms`);
+
+  // ── Prometheus instrumentation ──
+  const totalDuration = (Date.now() - callStart) / 1000;
+  aiRequestsTotal.inc({ type: metricType, tenant: tenantId });
+  aiRequestDurationSeconds.observe({ type: metricType, tenant: tenantId }, totalDuration);
 
   return {
     answer,
@@ -172,6 +216,8 @@ export async function embedAndStoreJournalEntry(
     createdAt: new Date(),
   });
 
+  // Track each embedded journal entry as a RAG document ingestion event.
+  ragDocumentsProcessedTotal.inc({ tenant: tenantId, source: 'journal_entry' });
   console.log(`[RAG] Stored embedding for entry ${entryId} (${vector.length} dims)`);
 }
 /**

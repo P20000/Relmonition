@@ -12,6 +12,9 @@ import coachRoutes from './routes/coach-routes';
 import aiConfigRoutes from './routes/ai-config-routes';
 import profileRoutes from './routes/profile-routes';
 import { getDashboardData } from './controllers/tenant-controller';
+// Observability: metrics registry + dedicated port 9464 server
+import { startMetricsServer } from './middleware/metrics';
+import { httpMetricsMiddleware } from './middleware/http-metrics';
 
 import dns from 'dns';
 
@@ -72,6 +75,8 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: '50mb' }));
 app.use(auditLogger);
+// Record HTTP latency + request counts for every route via Prometheus
+app.use(httpMetricsMiddleware);
 
 import { authenticate } from './middleware/auth';
 import { authorize } from './middleware/authorize';
@@ -92,4 +97,6 @@ app.get('/health', (req, res) => {
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
+  // Start the dedicated Prometheus metrics server (port 9464, never public-facing)
+  startMetricsServer();
 });

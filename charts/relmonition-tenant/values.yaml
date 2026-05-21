@@ -42,3 +42,7 @@ geminiApiKey: ""
 jwtSecret: ""
 encryptionKey: ""
 nodeEnv: "production"
+
+metrics:
+  # Set to false to disable the ServiceMonitor CRD and Prometheus scraping for this tenant
+  enabled: true

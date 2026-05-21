@@ -8,6 +8,15 @@ import { processJournalMetrics } from '../services/ai/metrics-service';
 import { checkAndSyncProfiles } from '../services/ai/profile-service';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { AuthorizedRequest } from '../middleware/authorize';
+import { Counter } from 'prom-client';
+
+// Tracks journal write operations (creates + updates) per tenant.
+// This surfaces daily engagement patterns in Grafana.
+const journalEntriesTotal = new Counter({
+  name: 'relmonition_journal_entries_created_total',
+  help: 'Total number of journal entries written (creates and updates)',
+  labelNames: ['tenant', 'operation'] as const,
+});
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -113,6 +122,10 @@ export const createEntry = async (req: Request, res: Response) => {
     checkAndSyncProfiles(tenantId).catch(err => {
         console.error(`[Journal] Failed to check/sync profiles:`, err);
     });
+
+    // Increment Prometheus counter — labeled by tenant and whether this was a create or update.
+    const operation = existingEntries.length > 0 ? 'update' : 'create';
+    journalEntriesTotal.inc({ tenant: tenantId, operation });
 
     res.status(existingEntries.length > 0 ? 200 : 201).json({ 
       message: existingEntries.length > 0 ? 'Entry updated' : 'Entry created', 

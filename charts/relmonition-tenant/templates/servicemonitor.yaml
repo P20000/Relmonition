@@ -1,0 +1,25 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    # This label is matched by the Prometheus Operator's serviceMonitorSelector.
+    # With serviceMonitorSelectorNilUsesHelmValues: false, ALL ServiceMonitors
+    # in any namespace are picked up automatically — zero config required.
+    app: relmonition
+    tenant: {{ .Values.coupleId | quote }}
+spec:
+  selector:
+    matchLabels:
+      app: relmonition
+      tenant: {{ .Values.coupleId | quote }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}

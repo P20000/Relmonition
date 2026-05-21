@@ -17,3 +17,7 @@ spec:
       protocol: TCP
       port: 3001
       targetPort: 3001
+    - name: metrics
+      protocol: TCP
+      port: 9464
+      targetPort: 9464

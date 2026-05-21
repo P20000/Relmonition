@@ -1,0 +1,56 @@
+# ── kube-prometheus-stack overrides ─────────────────────────────────────────
+kube-prometheus-stack:
+  # ── Prometheus ──────────────────────────────────────────────────────────
+  prometheus:
+    prometheusSpec:
+      scrapeInterval: "15s"
+      retention: "15d"
+      # CRITICAL: Watch ServiceMonitors across ALL namespaces (not just monitoring).
+      # This allows each tenant's Helm release to drop a ServiceMonitor and have
+      # Prometheus Operator pick it up automatically without any restart.
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: gp2
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 10Gi
+
+  # ── Grafana ─────────────────────────────────────────────────────────────
+  grafana:
+    # SECURITY: ClusterIP only — no public ingress.
+    # Access via: kubectl port-forward svc/relmonition-monitoring-grafana 3000:80 -n monitoring
+    service:
+      type: ClusterIP
+    ingress:
+      enabled: false
+    adminPassword: "CHANGE_ME_BEFORE_DEPLOY"
+    persistence:
+      enabled: true
+      storageClassName: gp2
+      size: 2Gi
+    # Sidecar watches ConfigMaps with label grafana_dashboard=1 and auto-loads them.
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"
+        searchNamespace: "ALL"
+      datasources:
+        enabled: true
+
+  # ── AlertManager ────────────────────────────────────────────────────────
+  alertmanager:
+    enabled: true
+
+  # ── Infrastructure Exporters ─────────────────────────────────────────────
+  # node-exporter: EKS node CPU, memory, disk, network per node
+  nodeExporter:
+    enabled: true
+  # kube-state-metrics: Pod restarts, OOMKills, HPA replica counts, PVC status
+  kubeStateMetrics:
+    enabled: true

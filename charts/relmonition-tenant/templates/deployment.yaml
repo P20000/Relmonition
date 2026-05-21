@@ -14,6 +14,10 @@ spec:
       labels:
         app: relmonition
         tenant: {{ .Values.coupleId | quote }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+        prometheus.io/path: "/metrics"
     spec:
       dnsConfig:
         options:
@@ -25,7 +29,10 @@ spec:
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: Always
         ports:
-        - containerPort: 3001
+        - name: http
+          containerPort: 3001
+        - name: metrics
+          containerPort: 9464
         livenessProbe:
           httpGet:
             path: {{ .Values.probes.liveness.path }}
