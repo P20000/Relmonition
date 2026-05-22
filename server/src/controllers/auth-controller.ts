@@ -7,8 +7,10 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { getAuthCookieConfig } from '../utils/cookie-config';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { DeletionOrchestrator } from '../services/deletion-orchestrator';
 
 const tenantManager = new TenantDatabaseManager();
+const deletionOrchestrator = new DeletionOrchestrator();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_fallback_key_12345';
 
@@ -197,5 +199,31 @@ export const updateProfile = async (req: Request, res: Response) => {
     res.json({ message: 'Profile updated successfully', name });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to update profile', details: error.message });
+  }
+};
+
+export const deleteAccount = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const userId = authReq.user.userId;
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    // Invoke the Orchestrator
+    await deletionOrchestrator.deleteUserAccount(userId, ip, userAgent);
+
+    // Clear session cookie
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieConfig = getAuthCookieConfig({ isProduction }, 0);
+    res.clearCookie('access_token', cookieConfig);
+
+    res.json({ success: true, message: 'Account securely deleted.' });
+  } catch (error: any) {
+    console.error('[AuthController] Account deletion failed:', error);
+    res.status(500).json({ error: 'Failed to delete account', details: error.message });
   }
 };

@@ -139,6 +139,14 @@ export const apiClient = {
     return handleResponse(response);
   },
 
+  async deleteAccount(): Promise<any> {
+    const response = await fetch(`${BASE_URL}/auth/me`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
   async getJournalPrompt(tenantId: string, userId: string): Promise<{ userName: string, partnerName: string, date: string }> {
     const response = await fetch(`${BASE_URL}/journal/prompt?tenantId=${tenantId}&userId=${userId}`, {
       credentials: 'include'

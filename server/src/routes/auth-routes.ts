@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { signup, login, logout, getMe, updateProfile } from '../controllers/auth-controller';
+import { signup, login, logout, getMe, updateProfile, deleteAccount } from '../controllers/auth-controller';
 import { authenticate } from '../middleware/auth';
 import { validateBody, authSchema, updateProfileSchema } from '../utils/validation';
 
@@ -10,5 +10,6 @@ router.post('/login', validateBody(authSchema), login);
 router.post('/logout', logout);
 router.get('/me', authenticate, getMe);
 router.patch('/update-profile', authenticate, validateBody(updateProfileSchema), updateProfile);
+router.delete('/me', authenticate, deleteAccount);
 
 export default router;
