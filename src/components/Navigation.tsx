@@ -3,7 +3,7 @@ import { LayoutDashboard, BookOpen, Brain, Menu, X, LogOut, Settings as Settings
 import { LogoIcon } from './ui/LogoIcon';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 type NavigationProps = {
   activeView: 'dashboard' | 'journal' | 'coach' | 'settings' | 'personality';
@@ -13,6 +13,7 @@ type NavigationProps = {
 export function Navigation({ activeView, onNavigate }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { logout } = useAuth();
+  const shouldReduceMotion = useReducedMotion();
 
   const navItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
@@ -64,9 +65,9 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
                   <AnimatePresence>
                     {activeView === item.id && (
                       <motion.div
-                        initial={{ opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
-                        animate={{ opacity: 1, scaleX: 1, scaleY: 1, filter: 'blur(0px)' }}
-                        exit={{ opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
+                        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
+                        animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scaleX: 1, scaleY: 1, filter: 'blur(0px)' }}
+                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                         className="absolute inset-0 bg-primary rounded-xl shadow-lg -z-10"
                       />
@@ -129,9 +130,9 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
                   <AnimatePresence>
                     {activeView === item.id && (
                       <motion.div
-                        initial={{ opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
-                        animate={{ opacity: 1, scaleX: 1, scaleY: 1, filter: 'blur(0px)' }}
-                        exit={{ opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
+                        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
+                        animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scaleX: 1, scaleY: 1, filter: 'blur(0px)' }}
+                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleX: 0.8, scaleY: 0.95, filter: 'blur(4px)' }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                         className="absolute inset-0 bg-primary rounded-xl shadow-lg -z-10"
                       />

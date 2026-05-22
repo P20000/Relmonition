@@ -65,9 +65,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (tenants.length > 0) {
               setActiveTenantId(tenants[0].id);
             }
+          }).finally(() => {
+            setIsLoaded(true);
           });
+        } else {
+          setIsLoaded(true);
         }
-        setIsLoaded(true);
       })
       .catch(err => {
         // Do not log standard 401 unauthenticated check as a console error

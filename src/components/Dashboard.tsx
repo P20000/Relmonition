@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Activity, Heart, TrendingUp, Zap, BarChart3, Smile, Sparkles, Shield, Star, Loader2, AlertTriangle, Wrench } from 'lucide-react';
 import { 
   LineChart, 
@@ -43,20 +43,21 @@ function GottmanEmptyState() {
       <p className="text-sm text-muted-foreground mb-6">
         Positive to negative interactions during conflict
       </p>
-      <div className="flex items-center justify-center py-8">
+      <div className="flex flex-col items-center justify-center py-6 gap-4">
         <div className="relative">
           <svg className="w-48 h-48" viewBox="0 0 200 200" aria-label="No data yet">
-            <circle cx="100" cy="100" r="80" fill="none" stroke="var(--muted)" strokeWidth="16" />
+            <circle cx="100" cy="100" r="80" fill="none" stroke="var(--muted)" strokeWidth="16" strokeDasharray="12 8" />
           </svg>
-          <div className="absolute inset-0 flex items-center justify-center flex-col">
-            <div className="text-3xl font-bold text-muted-foreground">—</div>
-            <div className="text-sm text-muted-foreground">no data yet</div>
+          <div className="absolute inset-0 flex items-center justify-center flex-col gap-1">
+            <div className="text-3xl font-bold text-muted-foreground/40">5:1</div>
+            <div className="text-xs text-muted-foreground/50 font-medium uppercase tracking-widest">target</div>
           </div>
         </div>
+        <div className="text-center">
+          <p className="text-sm font-medium text-foreground/70 mb-1">No interactions logged yet</p>
+          <p className="text-xs text-muted-foreground">Write journal entries to track your ratio</p>
+        </div>
       </div>
-      <p className="text-center text-sm text-muted-foreground opacity-60">
-        Start logging interactions to see your ratio
-      </p>
     </div>
   );
 }
@@ -116,7 +117,7 @@ export function GottmanRatioCard({ ratio, sampleWarning }: { ratio: number, samp
 }
 
 // ─── Interaction Chart ──────────────────────────────────────────────────────
-function InteractionTrendChart({ data }: { data: any[] }) {
+const InteractionTrendChart = React.memo(function InteractionTrendChart({ data }: { data: any[] }) {
   // Format data for Recharts
   const chartData = [...data]
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -193,7 +194,7 @@ function InteractionTrendChart({ data }: { data: any[] }) {
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
 function ImprovementsRequiredCard({ journals, history }: { journals: any[], history: any[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -257,8 +258,7 @@ function ImprovementsRequiredCard({ journals, history }: { journals: any[], hist
             <div 
               key={item.id} 
               onClick={() => setExpandedId(isExpanded ? null : item.id)}
-              className="p-4 rounded-2xl border border-destructive/20 cursor-pointer transition-all hover:bg-destructive/5"
-              style={{ backgroundColor: 'rgba(40, 10, 10, 0.3)' }}
+              className="p-4 rounded-2xl border border-destructive/20 cursor-pointer transition-all hover:bg-destructive/10 bg-[var(--destructive-muted)]"
             >
               <div className="flex justify-between items-start">
                 <div className="flex flex-col gap-1 pr-4">
@@ -267,6 +267,11 @@ function ImprovementsRequiredCard({ journals, history }: { journals: any[], hist
                     {displayTime} • {item.source === 'journal' ? 'Journal' : 'Chat'}
                   </span>
                   <span className="text-sm text-foreground/80 mt-1 line-clamp-1">{item.description}</span>
+                  {!isExpanded && (
+                    <span className="text-xs font-medium text-destructive/80 mt-2 flex items-center gap-1">
+                      Tap to view growth opportunities
+                    </span>
+                  )}
                 </div>
               </div>
               
@@ -348,8 +353,7 @@ function BestMomentsCard({ data }: { data: any[] }) {
             <div 
               key={moment.date} 
               onClick={() => setExpandedId(isExpanded ? null : moment.date)}
-              className="p-4 rounded-2xl border border-white/5 cursor-pointer transition-all hover:bg-white/5"
-              style={{ backgroundColor: 'rgba(30, 20, 40, 0.4)' }}
+              className="p-4 rounded-2xl border border-border cursor-pointer transition-all hover:bg-[var(--card-hover-bg)] bg-[var(--primary-muted)]"
             >
               <div className="flex justify-between items-start">
                 <div className="flex flex-col gap-1 pr-4">
@@ -486,14 +490,17 @@ export function Dashboard() {
         {/* Header */}
         <header className="mb-8">
           {greeting && (
-            <div className="flex items-center gap-2 mb-4 animate-in fade-in slide-in-from-left duration-700">
+            <div className="flex items-center gap-2 mb-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Sparkles className="w-5 h-5 text-primary animate-pulse" />
               <h2 className="text-2xl font-semibold bg-gradient-to-r from-foreground to-foreground/50 bg-clip-text text-transparent">
                 {greeting}
               </h2>
             </div>
           )}
-          <h1 className="mb-2">The Pulse</h1>
+          <div className="flex items-end gap-4 mb-2">
+            <h1 className="leading-none">The Pulse</h1>
+            {greeting && <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-border to-transparent mb-2" />}
+          </div>
           <p className="text-muted-foreground">Your relationship wellness dashboard</p>
         </header>
 
@@ -585,7 +592,7 @@ export function Dashboard() {
 
             {/* Trend or placeholder hint */}
             {trendStatus === 'INSUFFICIENT_DATA' ? (
-              <p className="text-sm text-muted-foreground opacity-50 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Log interactions for at least a week to see your trend
               </p>
             ) : trend != null && trend !== 0 ? (
@@ -597,7 +604,7 @@ export function Dashboard() {
                 <span className="text-sm text-muted-foreground">from last week</span>
               </div>
             ) : isEmpty ? (
-              <p className="text-sm text-muted-foreground opacity-50 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Log your mood daily to track your wellness score
               </p>
             ) : null}

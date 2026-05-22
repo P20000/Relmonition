@@ -164,7 +164,7 @@ export function Settings({ userEmail, userId, accountType, activeTenantId, onTen
 
                             <button
                                 onClick={onLogout}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-destructive focus:ring-offset-2"
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive hover:bg-destructive/5 transition-all focus:outline-none focus:ring-2 focus:ring-destructive/30"
                             >
                                 <LogOut className="w-4 h-4" />
                                 Sign Out

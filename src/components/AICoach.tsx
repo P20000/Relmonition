@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Virtuoso } from 'react-virtuoso';
 
 type CoachMode = 'retrieval' | 'exploration';
 type Message = {
@@ -121,14 +122,7 @@ export function AICoach() {
     isUpdatingFromStream.current = false;
   }, [activeSessionId]);
 
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
-    }
-  }, [messages]);
+    // Virtuoso handles auto-scrolling natively via followOutput
 
   const loadConversations = async () => {
     try {
@@ -432,7 +426,8 @@ export function AICoach() {
       setUploadStatus('success');
       setPendingFile(null);
       loadContextUploads();
-      
+      // Auto-dismiss the success flash after 2 seconds
+      setTimeout(() => setUploadStatus('idle'), 2000);
       // Auto-refresh context status after a few seconds to check 'processed' flag
       setTimeout(() => loadContextUploads(), 5000);
     } catch (err: any) {
@@ -613,162 +608,177 @@ export function AICoach() {
             className="rounded-3xl overflow-hidden mb-6 flex flex-col h-[650px]"
             style={glassCard}
           >
-            <div 
-              ref={chatContainerRef}
-              className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth custom-scrollbar"
-            >
-              {messages.map((message, index) => {
-                const isLastPrompt = message.role === 'user' && message.content === lastUserMessage?.content;
-                
-                return (
-                  <div
-                    key={index}
-                    className={`flex animate-in fade-in slide-in-from-bottom-3 duration-300 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[85%] group relative ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/10'
-                          : 'bg-card border border-border shadow-sm'
-                      } ${isEditing === message.id ? 'w-full' : ''} rounded-2xl p-5`}
-                    >
-                      {/* Message Content */}
-                      <div className="leading-relaxed text-sm">
-                        {isEditing === message.id ? (
-                           <div className="space-y-3">
-                              <textarea 
-                                value={editInput}
-                                onChange={(e) => setEditInput(e.target.value)}
-                                className="w-full bg-primary-foreground/10 text-primary-foreground p-3 rounded-lg border border-primary-foreground/20 focus:outline-none"
-                                rows={2}
-                              />
-                              <div className="flex gap-2">
-                                <button onClick={handleEdit} className="px-3 py-1.5 bg-background text-primary text-xs font-bold rounded-md">Save & Regenerate</button>
-                                <button onClick={() => setIsEditing(null)} className="px-3 py-1.5 text-xs font-medium text-primary-foreground/70">Cancel</button>
-                              </div>
-                           </div>
-                        ) : (
-                          message.content === '' && message.timestamp === 'Thinking...' ? (
-                            <ThinkingIndicator />
-                          ) : (
-                            <ReactMarkdown 
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                p: ({children}) => <p className="mb-3 last:mb-0">{children}</p>,
-                                ul: ({children}) => <ul className="list-disc ml-4 mb-3 space-y-1">{children}</ul>,
-                                ol: ({children}) => <ol className="list-decimal ml-4 mb-3 space-y-1">{children}</ol>,
-                                li: ({children}) => <li>{children}</li>,
-                                strong: ({children}) => <span className="font-bold text-inherit">{children}</span>,
-                                code: ({children}) => <code className="bg-black/10 dark:bg-white/10 px-1 rounded text-xs">{children}</code>,
-                                blockquote: ({children}) => <blockquote className="border-l-4 border-primary/30 pl-4 italic my-2">{children}</blockquote>
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
-                          )
-                        )}
+            <div className="flex-1 overflow-hidden p-4 md:p-6">
+              <Virtuoso
+                data={messages}
+                initialTopMostItemIndex={messages.length - 1}
+                followOutput="smooth"
+                className="h-full custom-scrollbar"
+                itemContent={(index, message) => {
+                  const isLastPrompt = message.role === 'user' && message.content === lastUserMessage?.content;
+                  const msgId = message.id || `msg-${index}`;
+                  
+                  return (
+                    <div className="pb-8">
+                      <div className={`flex animate-in fade-in slide-in-from-bottom-3 duration-300 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div
+                          className={`max-w-[85%] group relative ${
+                            message.role === 'user'
+                              ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/10'
+                              : 'bg-card border border-border shadow-sm'
+                          } ${isEditing === msgId ? 'w-full' : ''} rounded-2xl p-5`}
+                        >
+                          {/* Message Content */}
+                          <div className="leading-relaxed text-sm">
+                            {isEditing === msgId ? (
+                               <div className="space-y-3">
+                                  <textarea 
+                                    value={editInput}
+                                    onChange={(e) => setEditInput(e.target.value)}
+                                    className="w-full bg-primary-foreground/10 text-primary-foreground p-3 rounded-lg border border-primary-foreground/20 focus:outline-none"
+                                    rows={2}
+                                  />
+                                  <div className="flex gap-2">
+                                    <button onClick={handleEdit} className="px-3 py-1.5 bg-background text-primary text-xs font-bold rounded-md">Save & Regenerate</button>
+                                    <button onClick={() => setIsEditing(null)} className="px-3 py-1.5 text-xs font-medium text-primary-foreground/70">Cancel</button>
+                                  </div>
+                               </div>
+                            ) : (
+                              message.content === '' && message.timestamp === 'Thinking...' ? (
+                                <ThinkingIndicator />
+                              ) : (
+                                <ReactMarkdown 
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    p: ({children}) => <p className="mb-3 last:mb-0">{children}</p>,
+                                    ul: ({children}) => <ul className="list-disc ml-4 mb-3 space-y-1">{children}</ul>,
+                                    ol: ({children}) => <ol className="list-decimal ml-4 mb-3 space-y-1">{children}</ol>,
+                                    li: ({children}) => <li>{children}</li>,
+                                    strong: ({children}) => <span className="font-bold text-inherit">{children}</span>,
+                                    code: ({children}) => <code className="bg-black/10 dark:bg-white/10 px-1 rounded text-xs">{children}</code>,
+                                    blockquote: ({children}) => <blockquote className="border-l-4 border-primary/30 pl-4 italic my-2">{children}</blockquote>
+                                  }}
+                                >
+                                  {message.content}
+                                </ReactMarkdown>
+                              )
+                            )}
+                          </div>
+
+                          {/* Prompt Controls (Latest Only) */}
+                          {isLastPrompt && !isStreaming && !isSending && !isEditing && (
+                            <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-primary-foreground/10 animate-in fade-in">
+                               <button 
+                                 onClick={() => { setIsEditing(msgId); setEditInput(message.content); }}
+                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 text-primary-foreground/90 hover:text-primary-foreground transition-all text-xs font-medium"
+                                 title="Edit Prompt"
+                               >
+                                 <Edit3 className="w-3.5 h-3.5" /> Edit
+                               </button>
+                               <button 
+                                 onClick={handleRegenerate}
+                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 text-primary-foreground/90 hover:text-primary-foreground transition-all text-xs font-medium"
+                                 title="Regenerate Response"
+                               >
+                                 <RotateCcw className="w-3.5 h-3.5" /> Retry
+                               </button>
+                            </div>
+                          )}
+
+                          {message.timestamp && message.timestamp !== 'Thinking...' && (
+                            <div className="mt-3 text-[10px] opacity-60 flex items-center gap-1 font-medium uppercase tracking-wider">
+                              <Clock className="w-3 h-3" />
+                              {message.timestamp}
+                            </div>
+                          )}
+                        </div>
                       </div>
-
-                      {/* Prompt Controls (Latest Only) */}
-                      {isLastPrompt && !isStreaming && !isSending && !isEditing && (
-                        <div className="absolute -bottom-4 right-2 flex gap-1 animate-in zoom-in-50">
-                           <button 
-                             onClick={() => { setIsEditing(message.id || 'last'); setEditInput(message.content); }}
-                             className="p-1.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-primary transition-colors shadow-sm"
-                             title="Edit Prompt"
-                           >
-                             <Edit3 className="w-3.5 h-3.5" />
-                           </button>
-                           <button 
-                             onClick={handleRegenerate}
-                             className="p-1.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-primary transition-colors shadow-sm"
-                             title="Regenerate Response"
-                           >
-                             <RotateCcw className="w-3.5 h-3.5" />
-                           </button>
-                        </div>
-                      )}
-
-                      {message.timestamp && message.timestamp !== 'Thinking...' && (
-                        <div className="mt-3 text-[10px] opacity-60 flex items-center gap-1 font-medium uppercase tracking-wider">
-                          <Clock className="w-3 h-3" />
-                          {message.timestamp}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                );
-              })}
-              {/* Removed chatEndRef div to rely on container scroll */}
+                  );
+                }}
+              />
             </div>
 
             {/* Input Footer */}
-            <div className="p-6 border-t border-border bg-card/30 backdrop-blur-sm">
-              <div className="flex gap-3 items-end">
-                <div className="flex-1 relative">
-                  <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                      }
-                    }}
-                    placeholder={mode === 'retrieval' ? 'Ask for guidance...' : 'Explore patterns...'}
-                    className="w-full p-4 pr-12 rounded-2xl bg-input/50 border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm min-h-[56px] max-h-32"
-                    rows={1}
-                    disabled={isSending || isStreaming}
-                  />
-                  {isStreaming || isSending ? (
-                    <button
-                      onClick={handleStop}
-                      className="absolute right-3 bottom-[11px] p-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all animate-pulse"
-                      title="Stop Generation"
-                    >
-                      <Square className="w-4 h-4 fill-current" />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleSend()}
-                      disabled={!input.trim()}
-                      className="absolute right-3 bottom-[11px] p-2 rounded-xl bg-primary text-primary-foreground hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-30"
-                    >
-                       <Send className="w-4 h-4" />
-                    </button>
+            <div className="p-4 md:p-6 border-t border-border bg-card/30 backdrop-blur-sm flex flex-col gap-3">
+              {/* Context Bar */}
+              {(contextUploads.length > 0 || uploadStatus === 'uploading' || uploadStatus === 'error') && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                  {uploadStatus === 'uploading' && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium animate-pulse shrink-0">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Uploading...
+                    </div>
                   )}
+                  {uploadStatus === 'error' && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium shrink-0">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {uploadError}
+                    </div>
+                  )}
+                  {contextUploads.map((u) => {
+                    const progress = u.processingProgress || 0;
+                    // Gradient: 0% = red, 100% = green interpolated via hue
+                    const hue = Math.round(progress * 1.2); // 0 → 0 (red), 100 → 120 (green)
+                    const gradientBg = `linear-gradient(90deg, hsl(${hue},80%,40%) 0%, hsl(${Math.min(hue + 30, 120)},80%,50%) ${progress}%, transparent ${progress}%)`;
+                    return (
+                      <div key={u.id} className="group relative flex flex-col overflow-hidden rounded-xl border border-white/10 bg-white/5 text-xs text-foreground/80 whitespace-nowrap transition-all hover:bg-white/10 shrink-0 min-w-[140px] max-w-[200px]">
+                        {/* Progress bar track */}
+                        {!u.processed && (
+                          <div
+                            className="absolute inset-0 opacity-20 transition-all duration-700"
+                            style={{ background: gradientBg }}
+                          />
+                        )}
+                        {u.processed && (
+                          <div className="absolute inset-0 opacity-15" style={{ background: 'linear-gradient(90deg, hsl(120,80%,40%), hsl(140,80%,50%))' }} />
+                        )}
+                        {/* Content */}
+                        <div className="relative z-10 flex items-center gap-2 px-3 py-2">
+                          {u.processed
+                            ? <Database className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                            : <Loader2 className="w-3.5 h-3.5 text-red-400 animate-spin shrink-0" />
+                          }
+                          <span className="truncate flex-1">{u.fileName}</span>
+                          {!u.processed && (
+                            <span className="font-bold tabular-nums" style={{ color: `hsl(${hue},80%,65%)` }}>{progress}%</span>
+                          )}
+                          <button
+                            onClick={() => handleDeleteContext(u.id)}
+                            className="p-0.5 rounded-full hover:bg-destructive/30 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                        {/* Thin progress line at the bottom */}
+                        {!u.processed && (
+                          <div className="relative z-10 h-[2px] w-full bg-white/5">
+                            <div
+                              className="h-full transition-all duration-700"
+                              style={{
+                                width: `${progress}%`,
+                                background: `linear-gradient(90deg, hsl(0,80%,50%), hsl(${hue},80%,55%))`
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            </div>
-          </div>
+              )}
 
-          {/* Context Management Card */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
-             {/* Upload Block */}
-             <div className="p-8 rounded-3xl" style={glassCard}>
-                <div className="flex items-center gap-3 mb-4">
-                   <Upload className="w-5 h-5 text-primary" />
-                   <h2 className="text-lg font-semibold tracking-tight">Enhance Context</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                  Upload WhatsApp or iMessage logs to provide the AI with deep semantic memory of your history.
-                </p>
-                <button 
+              {/* Unified Input Block */}
+              <div className="flex items-stretch rounded-2xl border border-border bg-input/50 overflow-hidden focus-within:ring-2 focus-within:ring-primary/50 transition-all">
+                {/* Attachment Button */}
+                <button
                   onClick={() => document.getElementById('chat-history-upload')?.click()}
-                  className="w-full py-8 rounded-2xl border-2 border-dashed border-border hover:border-primary transition-all flex flex-col items-center gap-2 group relative overflow-hidden"
+                  className="flex items-center justify-center px-4 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors flex-shrink-0 border-r border-border"
+                  title="Enhance Context"
+                  disabled={uploadStatus === 'uploading'}
                 >
-                   {uploadStatus === 'uploading' ? (
-                     <>
-                       <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                       <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Uploading...</span>
-                     </>
-                   ) : (
-                     <>
-                       <Database className="w-8 h-8 opacity-30 group-hover:opacity-100 group-hover:text-primary transition-all group-hover:scale-110" />
-                       <span className="text-[10px] font-bold opacity-60 group-hover:opacity-100 uppercase tracking-widest">Select TXT/JSON Log</span>
-                     </>
-                   )}
-                   <input 
+                  <Plus className="w-5 h-5" />
+                  <input 
                     id="chat-history-upload" 
                     type="file" 
                     className="hidden" 
@@ -777,79 +787,47 @@ export function AICoach() {
                     disabled={uploadStatus === 'uploading'}
                   />
                 </button>
-                {uploadStatus === 'success' && <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 text-[10px] text-center font-bold uppercase tracking-wider animate-in slide-in-from-top-2">Upload confirmed! Processing...</div>}
-                {uploadStatus === 'error' && <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs text-center font-medium">{uploadError}</div>}
-             </div>
 
-             {/* Existing Context List */}
-             <div className="p-8 rounded-3xl" style={glassCard}>
-                <div className="flex items-center justify-between mb-4">
-                   <div className="flex items-center gap-3">
-                      <Layers className="w-5 h-5 text-primary" />
-                      <h2 className="text-lg font-semibold tracking-tight">Level 1 Context</h2>
-                   </div>
-                   <div className="text-[10px] font-bold text-primary px-2 py-1 rounded bg-primary/10 uppercase tracking-widest">
-                      {contextUploads.filter(u => u.processed).length} Active
-                   </div>
-                </div>
-                
-                <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                   {contextUploads.map((u) => (
-                      <div key={u.id} className="relative p-5 rounded-3xl bg-accent/20 border border-white/5 overflow-hidden group transition-all hover:bg-accent/30">
-                         {/* Main Content */}
-                         <div className="flex items-center justify-between relative z-10">
-                            <div className="flex items-center gap-4 overflow-hidden">
-                               <div className={`p-2.5 rounded-2xl ${u.processed ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'}`}>
-                                  {u.processed ? (
-                                    <Activity className="w-5 h-5" />
-                                  ) : (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                  )}
-                               </div>
-                               <div className="overflow-hidden">
-                                  <div className="text-sm font-semibold truncate text-white/90">{u.fileName}</div>
-                                  <div className="text-[10px] opacity-40 font-bold uppercase tracking-widest mt-0.5">
-                                    {(u.fileSize / 1024).toFixed(1)} KB • {new Date(u.createdAt).toLocaleDateString()}
-                                  </div>
-                               </div>
-                            </div>
-                            <button 
-                              onClick={() => handleDeleteContext(u.id)}
-                              className="p-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all transform hover:scale-110"
-                            >
-                               <Trash2 className="w-4 h-4" />
-                            </button>
-                         </div>
+                {/* Textarea */}
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder={mode === 'retrieval' ? 'Ask for guidance...' : 'Explore patterns...'}
+                  className="flex-1 py-4 px-4 bg-transparent resize-none focus:outline-none text-sm leading-6 min-h-[56px] max-h-32 custom-scrollbar"
+                  rows={1}
+                  disabled={isSending || isStreaming}
+                />
 
-                         {/* Progress Section (Full Width at Bottom) */}
-                         {!u.processed && (
-                           <div className="mt-5 space-y-2 relative z-10">
-                              <div className="flex items-center justify-between text-[10px] uppercase tracking-tighter font-black">
-                                 <span className="text-muted-foreground/60">Processing Context...</span>
-                                 <span className="text-primary tabular-nums">{u.processingProgress || 0}%</span>
-                              </div>
-                              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                 <div 
-                                   className="h-full bg-primary transition-all duration-700 ease-out shadow-[0_0_12px_rgba(var(--primary),0.4)]" 
-                                   style={{ 
-                                     width: `${u.processingProgress || 0}%`,
-                                     background: 'linear-gradient(90deg, var(--primary) 0%, #ff00ff 100%)' 
-                                   }} 
-                                 />
-                              </div>
-                           </div>
-                         )}
-                      </div>
-                   ))}
-                   {contextUploads.length === 0 && (
-                     <div className="flex flex-col items-center justify-center py-8 opacity-20">
-                        <Database className="w-8 h-8 mb-2" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Empty Semantic Memory</span>
-                     </div>
-                   )}
+                {/* Send / Stop Button */}
+                <div className="flex items-center px-3 flex-shrink-0 border-l border-border">
+                  {isStreaming || isSending ? (
+                    <button
+                      onClick={handleStop}
+                      className="p-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all animate-pulse flex items-center justify-center"
+                      title="Stop Generation"
+                    >
+                      <Square className="w-4 h-4 fill-current" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleSend()}
+                      disabled={!input.trim()}
+                      className="p-2 rounded-xl bg-primary text-primary-foreground hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-30 flex items-center justify-center"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-             </div>
+              </div>
+            </div>
           </div>
+
         </div>
       </main>
       </div>

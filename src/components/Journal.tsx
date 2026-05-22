@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { Sparkles, Lock, Eye, Send, Loader2, Calendar, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Sparkles, Lock, Eye, Send, Loader2, Calendar, BookOpen, ChevronLeft, ChevronRight, Flame, Star, Trophy } from 'lucide-react';
 import { apiClient } from '../../api-client';
 import {
     Dialog,
@@ -54,6 +54,10 @@ export function Journal({ userId, tenantId }: JournalProps) {
     const { daysInMonth, firstDayOfMonth, year, month } = getDaysInMonth(currentMonth);
     const blanks = Array(firstDayOfMonth).fill(null);
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    
+    // Always render 6 rows (42 slots) so the calendar height remains perfectly fixed
+    const trailingBlanksCount = 42 - (firstDayOfMonth + daysInMonth);
+    const trailingBlanks = Array(Math.max(0, trailingBlanksCount)).fill(null);
 
     const prevMonth = () => setCurrentMonth(new Date(year, month - 1, 1));
     const nextMonth = () => setCurrentMonth(new Date(year, month + 1, 1));
@@ -63,16 +67,40 @@ export function Journal({ userId, tenantId }: JournalProps) {
     };
 
     const entriesByDate = pastEntries.reduce((acc, entry) => {
-        let dateStr = entry.date;
-        if (!dateStr) {
-           const raw = Number(entry.createdAt);
-           const ms = raw < 10000000000 ? raw * 1000 : raw;
-           const d = new Date(ms);
-           dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        }
-        acc[dateStr] = entry;
+        if (entry.date) acc[entry.date] = entry;
         return acc;
     }, {} as Record<string, JournalEntry>);
+
+    // --- Gamification Stats ---
+    const totalJournals = pastEntries.length;
+    
+    let currentStreak = 0;
+    let checkDate = new Date();
+    let hasCheckedToday = false;
+
+    while (true) {
+        const year = checkDate.getFullYear();
+        const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+        const day = String(checkDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        if (entriesByDate[dateStr]) {
+            currentStreak++;
+            hasCheckedToday = true;
+        } else if (!hasCheckedToday) {
+            hasCheckedToday = true;
+        } else {
+            break;
+        }
+        checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    const achievements = [
+        { id: 'first_step', title: 'First Step', desc: 'Log your first journal entry', icon: <BookOpen className="w-5 h-5 text-blue-400" />, unlocked: totalJournals >= 1 },
+        { id: 'consistent', title: 'Consistent', desc: 'Reach a 3-day journaling streak', icon: <Flame className="w-5 h-5 text-orange-400" />, unlocked: currentStreak >= 3 },
+        { id: 'devoted', title: 'Devoted', desc: 'Log 10 total journal entries', icon: <Star className="w-5 h-5 text-yellow-400" />, unlocked: totalJournals >= 10 },
+        { id: 'scholar', title: 'Scholar', desc: 'Log 30 total journal entries', icon: <Trophy className="w-5 h-5 text-purple-400" />, unlocked: totalJournals >= 30 },
+    ];
 
     useEffect(() => {
         if (tenantId) fetchInitialData();
@@ -182,7 +210,7 @@ export function Journal({ userId, tenantId }: JournalProps) {
                         </label>
                         <textarea
                             id="your-response"
-                            className="w-full p-4 rounded-xl bg-background/50 border border-border text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70"
+                            className="w-full p-4 rounded-2xl bg-background/50 border border-border text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-70"
                             rows={6}
                             placeholder="Share your feelings..."
                             value={yourAnswer}
@@ -218,7 +246,9 @@ export function Journal({ userId, tenantId }: JournalProps) {
                     {loadingEntries ? (
                         <div className="flex items-center justify-center h-64 bg-muted/20 rounded-3xl animate-pulse" />
                     ) : (
-                        <div className="p-6 md:p-8 rounded-3xl" style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
+                        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+                            {/* Left: Calendar */}
+                            <div className="flex-1 p-4 md:p-8 rounded-3xl lg:max-w-xl w-full" style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
                             <div className="flex justify-between items-center mb-6">
                                 <h4 className="text-xl font-semibold">{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h4>
                                 <div className="flex gap-2">
@@ -227,11 +257,11 @@ export function Journal({ userId, tenantId }: JournalProps) {
                                 </div>
                             </div>
                             
-                            <div className="grid grid-cols-7 gap-2 mb-4 text-center text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                            <div className="grid grid-cols-7 gap-1 md:gap-4 mb-4 text-center text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="opacity-70">{d}</div>)}
                             </div>
                             
-                            <div className="grid grid-cols-7 gap-2 md:gap-4">
+                            <div className="grid grid-cols-7 gap-1 md:gap-4">
                                 {blanks.map((_, i) => (
                                     <div key={`blank-${i}`} className="aspect-square rounded-2xl bg-transparent" />
                                 ))}
@@ -244,19 +274,75 @@ export function Journal({ userId, tenantId }: JournalProps) {
                                         <div 
                                             key={day} 
                                             onClick={() => entry && setSelectedEntry(entry)}
-                                            className={`aspect-square rounded-2xl flex flex-col items-center justify-center relative transition-all ${
+                                            className={`aspect-square rounded-xl md:rounded-2xl flex flex-col items-center justify-center relative transition-all ${
                                                 entry 
                                                     ? 'bg-primary/20 text-primary hover:bg-primary/30 font-bold border border-primary/30 cursor-pointer hover:scale-105 hover:shadow-lg' 
                                                     : 'hover:bg-muted/20 text-foreground/70 cursor-default'
                                             } ${isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
                                         >
-                                            <span className="text-lg md:text-xl">{day}</span>
+                                            <span className="text-base md:text-xl">{day}</span>
                                             {entry && (
                                                 <div className="absolute bottom-2 md:bottom-3 w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-primary animate-pulse" />
                                             )}
                                         </div>
                                     )
                                 })}
+                                {trailingBlanks.map((_, i) => (
+                                    <div key={`trailing-${i}`} className="aspect-square rounded-xl md:rounded-2xl bg-transparent" />
+                                ))}
+                            </div>
+                            </div>
+                            
+                            {/* Right: Gamification Stats */}
+                            <div className="flex-1 flex flex-col gap-6 w-full lg:w-auto">
+                                {/* Top Stats */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-6 rounded-3xl flex flex-col items-center justify-center text-center relative overflow-hidden" style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.05)' }}>
+                                        <Flame className={`w-8 h-8 mb-2 ${currentStreak > 0 ? 'text-orange-500 animate-pulse' : 'text-muted-foreground opacity-50'}`} />
+                                        <div className="text-3xl font-bold">{currentStreak}</div>
+                                        <div className="text-sm text-muted-foreground font-medium uppercase tracking-widest mt-1">Day Streak</div>
+                                    </div>
+                                    <div className="p-6 rounded-3xl flex flex-col items-center justify-center text-center relative overflow-hidden" style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.05)' }}>
+                                        <Star className="w-8 h-8 mb-2 text-yellow-500" />
+                                        <div className="text-3xl font-bold">{totalJournals}</div>
+                                        <div className="text-sm text-muted-foreground font-medium uppercase tracking-widest mt-1">Total Entries</div>
+                                    </div>
+                                </div>
+
+                                {/* Single Achievement Display */}
+                                <div className="w-full flex-1 p-5 rounded-3xl flex flex-col" style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.05)' }}>
+                                    <h4 className="text-lg font-semibold mb-4 flex items-center justify-center gap-2 text-center w-full">
+                                        <Trophy className="w-5 h-5 text-primary" /> Current Milestone
+                                    </h4>
+                                    <div className="flex-1 flex flex-col">
+                                        {(() => {
+                                            const displayAch = [...achievements].reverse().find(a => a.unlocked) || achievements[0];
+                                            return (
+                                                <div 
+                                                    key={displayAch.id} 
+                                                    className={`p-4 md:p-5 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all border flex-1 text-center ${displayAch.unlocked ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-muted/10 border-border/50 opacity-60 grayscale'}`}
+                                                >
+                                                    <div className={`p-4 rounded-full flex items-center justify-center [&>svg]:w-10 [&>svg]:h-10 ${displayAch.unlocked ? 'bg-background shadow-md' : 'bg-muted'}`}>
+                                                        {displayAch.icon}
+                                                    </div>
+                                                    <div className="flex flex-col items-center gap-0.5">
+                                                        <div className={`text-lg font-bold ${displayAch.unlocked ? 'text-foreground' : 'text-muted-foreground'}`}>{displayAch.title}</div>
+                                                        <div className="text-xs text-muted-foreground">{displayAch.desc}</div>
+                                                    </div>
+                                                    {displayAch.unlocked ? (
+                                                        <div className="mt-1 w-full max-w-[160px] flex items-center justify-center bg-primary/20 text-primary text-xs font-bold px-4 py-2 rounded-2xl animate-in zoom-in">
+                                                            Unlocked
+                                                        </div>
+                                                    ) : (
+                                                        <div className="mt-1 w-full max-w-[160px] flex items-center justify-center bg-background/50 border border-border/50 text-muted-foreground text-xs font-bold px-4 py-2 rounded-2xl">
+                                                            Locked
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}

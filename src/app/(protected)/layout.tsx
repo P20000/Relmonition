@@ -44,7 +44,7 @@ export default function ProtectedLayout({
     <div
       className="min-h-screen"
       style={{
-        background: 'radial-gradient(ellipse at top, var(--accent) 0%, var(--background) 50%)',
+        background: 'radial-gradient(ellipse at top, color-mix(in srgb, var(--primary) 15%, transparent) 0%, var(--background) 70%)',
       }}
     >
       <Navigation activeView={activeView} onNavigate={handleNavigate} />

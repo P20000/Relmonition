@@ -28,8 +28,8 @@ const GREETING_TEMPLATES = [
  * @param tenantId The tenant ID (optional) to fetch custom AI config
  */
 export async function generateDynamicGreeting(name: string, tenantId?: string): Promise<string> {
-  // 1. Roll the dice for Hybrid Mode (90/10 split)
-  const useTemplate = Math.random() < 0.9;
+  // 1. Force Template Mode (100%) to save strict API quota
+  const useTemplate = true;
 
   if (useTemplate) {
     const template = GREETING_TEMPLATES[Math.floor(Math.random() * GREETING_TEMPLATES.length)];

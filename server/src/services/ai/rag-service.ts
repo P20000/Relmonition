@@ -348,10 +348,10 @@ export async function backfillHistoryFromExistingUploads(tenantId: string): Prom
     console.log(`[RAG] Found ${existingUploads.length} existing uploads to analyze.`);
     const { analyzeHistoryFromChat } = await import('./metrics-service');
 
-    // 1. Full Flush for Tenant (to clear ghost data and start fresh with new parser)
-    await db.delete(schema.relationshipHealthHistory)
-      .where(eq(schema.relationshipHealthHistory.tenantId, tenantId));
-    console.log(`[RAG] Flushed existing history for tenant ${tenantId} to ensure clean sync.`);
+    // 1. We no longer flush the table. The smart-skip logic in metrics-service 
+    // will ensure we don't re-analyze weeks we've already done, allowing us to 
+    // resume seamlessly if we hit a rate limit.
+    console.log(`[RAG] Skipping flush for tenant ${tenantId} to allow safe resumption of backfill.`);
 
     // 2. Process uploads
     for (const upload of existingUploads) {

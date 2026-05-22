@@ -8,6 +8,9 @@ import { AuthorizedRequest } from '../middleware/authorize';
 
 const tenantManager = new TenantDatabaseManager();
 
+// Track active backfills to prevent tab-switching spam from spawning redundant, quota-burning background jobs
+const activeBackfills = new Set<string>();
+
 // Helper to get DB instance — always forces a string from params
 const getDb = async (tenantId: string) => {
   const { client } = await tenantManager.getDatabaseClient(tenantId);
@@ -150,10 +153,16 @@ export const getDashboardData = async (req: Request, res: Response) => {
     if (needsInitialBackfill || needsFormatUpdate) {
       const journalCount = await db.select({ count: sql<number>`count(*)` }).from(schema.journalEntries).where(eq(schema.journalEntries.tenantId, tid));
       if (journalCount[0]?.count > 0) {
-        console.log(`[SmartSync] Triggering ${needsFormatUpdate ? 'migration' : 'initial'} metrics backfill for tenant ${tid}`);
-        import('../utils/backfill-metrics').then(m => m.backfillTenantMetrics(tid)).catch(err => {
-          console.error(`[SmartSync] Backfill trigger failed:`, err);
-        });
+        const lockKey = `journal_backfill_${tid}`;
+        if (!activeBackfills.has(lockKey)) {
+          activeBackfills.add(lockKey);
+          console.log(`[SmartSync] Triggering ${needsFormatUpdate ? 'migration' : 'initial'} metrics backfill for tenant ${tid}`);
+          import('../utils/backfill-metrics').then(m => m.backfillTenantMetrics(tid)).catch(err => {
+            console.error(`[SmartSync] Backfill trigger failed:`, err);
+          }).finally(() => {
+            activeBackfills.delete(lockKey);
+          });
+        }
       }
     }
 
@@ -161,10 +170,16 @@ export const getDashboardData = async (req: Request, res: Response) => {
     if (history.length === 0) {
       const chatCount = await db.select({ count: sql<number>`count(*)` }).from(schema.chatUploads).where(eq(schema.chatUploads.tenantId, tid));
       if (chatCount[0]?.count > 0) {
-        console.log(`[SmartSync] Triggering historical backfill for tenant ${tid}`);
-        import('../services/ai/rag-service').then(m => m.backfillHistoryFromExistingUploads(tid)).catch(err => {
-          console.error(`[SmartSync] History backfill trigger failed:`, err);
-        });
+        const lockKey = `chat_backfill_${tid}`;
+        if (!activeBackfills.has(lockKey)) {
+          activeBackfills.add(lockKey);
+          console.log(`[SmartSync] Triggering historical backfill for tenant ${tid}`);
+          import('../services/ai/rag-service').then(m => m.backfillHistoryFromExistingUploads(tid)).catch(err => {
+            console.error(`[SmartSync] History backfill trigger failed:`, err);
+          }).finally(() => {
+            activeBackfills.delete(lockKey);
+          });
+        }
       }
     }
 

@@ -323,18 +323,18 @@ export function RelationshipManager({ userId, activeTenantId, onTenantChange }: 
                   <RefreshCw className="w-3 h-3" /> Regenerate
                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 px-3 py-2 rounded bg-background border border-border font-mono text-lg tracking-widest text-center">
+              <div className="relative flex items-center mt-2">
+                <code className="w-full px-12 py-3 rounded-xl bg-background/50 border border-border font-mono text-lg tracking-[0.2em] text-center text-foreground">
                   {activeTenant.connection_code || activeTenant.connectionCode}
                 </code>
                 <button
                   onClick={() => copyConnectionCode(activeTenant.connection_code || activeTenant.connectionCode)}
-                  className="p-2 rounded hover:bg-accent transition-colors"
+                  className="absolute right-2 p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   title="Copy code"
                 >
                   {copiedCode
-                    ? <CheckCircle className="w-5 h-5 text-green-500" />
-                    : <Copy className="w-5 h-5" />}
+                    ? <CheckCircle className="w-4 h-4 text-green-500" />
+                    : <Copy className="w-4 h-4" />}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">

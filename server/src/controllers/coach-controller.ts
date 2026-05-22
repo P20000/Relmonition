@@ -246,9 +246,13 @@ export const regenerateResponse = async (req: Request, res: Response) => {
 
     if (!lastUser) return res.status(400).json({ error: 'No message to regenerate.' });
 
-    // 2. Delete the latest assistant response if it exists
+    // 2. Delete the latest assistant response and the user message
+    // We delete the user message because streamChat() automatically re-inserts the query as a new user message.
     if (lastAssistant) {
       await db.delete(schema.coachMessages).where(eq(schema.coachMessages.id, lastAssistant.id));
+    }
+    if (lastUser) {
+      await db.delete(schema.coachMessages).where(eq(schema.coachMessages.id, lastUser.id));
     }
 
     // 3. Re-trigger stream with same query
