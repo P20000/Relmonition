@@ -126,6 +126,9 @@ export const getDashboardData = async (req: Request, res: Response) => {
     const endUTC = new Date();
     const startUTC = new Date(endUTC.getTime() - 14 * 24 * 60 * 60 * 1000); // 14 days for trend
 
+    const tenantInfo = await globalClient.select({ partnerDeparted: schema.tenants.partnerDeparted }).from(schema.tenants).where(eq(schema.tenants.id, tid)).limit(1);
+    const partnerDeparted = tenantInfo[0]?.partnerDeparted ?? false;
+
     const [moods, insights, interaction, greeting, history, journals] = await Promise.all([
       db.select()
         .from(schema.moodLogs)
@@ -202,7 +205,8 @@ export const getDashboardData = async (req: Request, res: Response) => {
         healthScore: healthScore,
         trend: trendResult.trend,
         trendStatus: trendResult.trendStatus
-      }
+      },
+      partnerDeparted
     });
   } catch (error: any) {
     console.error('Dashboard error:', error);
@@ -359,17 +363,42 @@ export const leaveTenant = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Owner cannot leave the tenant. Delete the tenant instead.' });
     }
 
-    await client
-      .update(schema.tenantMembers)
-      .set({ status: 'inactive' }) // soft delete membership
+    // Count active members to see if this user is the absolute last anchor
+    const activeMembers = await client
+      .select({ id: schema.tenantMembers.id })
+      .from(schema.tenantMembers)
       .where(
         and(
           eq(schema.tenantMembers.tenantId, tenantId),
-          eq(schema.tenantMembers.userId, userId)
+          eq(schema.tenantMembers.status, 'active')
         )
       );
 
-    res.json({ message: 'Left tenant successfully' });
+    if (activeMembers.length <= 1) {
+      // User is the very last active member. Ghosting the tenant...
+      console.log(`[leaveTenant] User ${userId} is the last active member of tenant ${tenantId}. Triggering full wipe.`);
+      await tenantManager.executeRightToBeForgotten(tenantId);
+      return res.json({ message: 'Left relationship. The relationship data was eradicated as no members remain.' });
+    } else {
+      // Soft leave: Mark user as inactive
+      await client
+        .update(schema.tenantMembers)
+        .set({ status: 'inactive' })
+        .where(
+          and(
+            eq(schema.tenantMembers.tenantId, tenantId),
+            eq(schema.tenantMembers.userId, userId)
+          )
+        );
+
+      // Flag the tenant so the remaining partner sees the warning banner
+      await client
+        .update(schema.tenants)
+        .set({ partnerDeparted: true })
+        .where(eq(schema.tenants.id, tenantId));
+
+      return res.json({ message: 'Left relationship successfully.' });
+    }
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to leave tenant', details: error.message });
   }

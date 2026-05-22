@@ -67,6 +67,12 @@ export class DeletionOrchestrator {
         await client
           .delete(schema.tenantMembers)
           .where(and(eq(schema.tenantMembers.tenantId, tenantId), eq(schema.tenantMembers.userId, userId)));
+
+        // Flag the tenant as having a departed partner
+        await client
+          .update(schema.tenants)
+          .set({ partnerDeparted: true })
+          .where(eq(schema.tenants.id, tenantId));
       }
     }
 

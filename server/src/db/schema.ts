@@ -36,6 +36,7 @@ export const tenants = sqliteTable('tenants', {
   name: text('name'),
   connectionCode: text('connection_code').notNull().unique(),
   tenantDbUrl: text('tenant_db_url'), // For specific DB-level isolation
+  partnerDeparted: integer('partner_departed', { mode: 'boolean' }).default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   deletedAt: integer('deleted_at', { mode: 'timestamp' }),
 });

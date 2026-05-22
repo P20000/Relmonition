@@ -426,6 +426,8 @@ export function Dashboard() {
     fetchDashboardData();
   }, [userId]);
 
+  const { partnerDeparted, lastMood, insights, recentInteractions, history, journals, computedMetrics, greeting } = data || {};
+
   // ... (rest of loading/error states)
   if (loading) {
     return (
@@ -467,8 +469,6 @@ export function Dashboard() {
     );
   }
 
-  const { lastMood, recentInteractions, greeting, insights, history, journals, computedMetrics } = data || {};
-
   // ── Detect empty state — no real data at all ───────────────────────────────
   const hasInteractions = Array.isArray(recentInteractions) && recentInteractions.length > 0;
   const hasMood = lastMood != null;
@@ -487,6 +487,30 @@ export function Dashboard() {
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Partner Departed Warning Banner */}
+        {Boolean(partnerDeparted) && (
+          <div 
+            className="w-full p-4 md:p-6 rounded-2xl mb-8 relative overflow-hidden flex flex-col md:flex-row items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-700"
+            style={{
+              background: 'var(--glass-bg)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 50, 50, 0.2)',
+              boxShadow: '0 4px 16px rgba(255, 0, 0, 0.05)',
+            }}
+          >
+            <div className="absolute top-0 left-0 w-1 h-full bg-destructive"></div>
+            <div className="p-3 bg-destructive/10 rounded-full text-destructive">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-lg font-semibold text-foreground mb-1">Your partner has deleted their account</h3>
+              <p className="text-sm text-muted-foreground">
+                This dashboard reflects <strong className="text-foreground">historical relationship data</strong>. New metrics will only be generated from your personal journal entries moving forward.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <header className="mb-8">
           {greeting && (
