@@ -8,6 +8,7 @@ import {
 import {
   getUserTenants, createTenant, joinTenant,
   regenerateConnectionCode, leaveTenant, deleteTenant,
+  getTenantStatus,
   type TenantWithMembers,
 } from '../../lib/tenants';
 
@@ -29,6 +30,10 @@ export function RelationshipManager({ userId, activeTenantId, onTenantChange }: 
   const [tenantLoading, setTenantLoading] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
+  const [provisioningTenantId, setProvisioningTenantId] = useState<string | null>(null);
+  const [provisioningProgress, setProvisioningProgress] = useState(0);
+  const [provisioningStage, setProvisioningStage] = useState('');
+
   useEffect(() => {
     if (userId) loadTenants();
   }, [userId]);
@@ -41,6 +46,58 @@ export function RelationshipManager({ userId, activeTenantId, onTenantChange }: 
     }
   };
 
+  const startProvisioningPoll = (tenantId: string) => {
+    setProvisioningTenantId(tenantId);
+    setProvisioningProgress(5);
+    setProvisioningStage('Allocating secure cloud workspace...');
+
+    let progress = 5;
+    const progressInterval = setInterval(() => {
+      progress = Math.min(progress + Math.floor(Math.random() * 4) + 1, 95);
+      setProvisioningProgress(progress);
+
+      if (progress < 30) {
+        setProvisioningStage('Allocating secure cloud workspace...');
+      } else if (progress < 55) {
+        setProvisioningStage('Starting private relationship server...');
+      } else if (progress < 80) {
+        setProvisioningStage('Configuring network ingress routing...');
+      } else {
+        setProvisioningStage('Verifying secure endpoints...');
+      }
+    }, 1000);
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const { status, error } = await getTenantStatus(tenantId);
+        
+        if (status === 'active') {
+          clearInterval(progressInterval);
+          clearInterval(pollInterval);
+          setProvisioningProgress(100);
+          setProvisioningStage('Secure vault is ready! Redirecting...');
+          
+          setTimeout(async () => {
+            await loadTenants();
+            setProvisioningTenantId(null);
+            setShowCreateTenant(false);
+            setNewTenantName('');
+            onTenantChange(tenantId);
+            setTenantLoading(false);
+          }, 1500);
+        } else if (status === 'failed') {
+          clearInterval(progressInterval);
+          clearInterval(pollInterval);
+          setProvisioningTenantId(null);
+          setTenantLoading(false);
+          setTenantError(`Provisioning failed: ${error || 'Unknown error'}`);
+        }
+      } catch (err: any) {
+        console.warn('Polling error:', err);
+      }
+    }, 3000);
+  };
+
   const handleCreateTenant = async () => {
     if (!newTenantName.trim()) return setTenantError('Please enter a relationship name');
     setTenantLoading(true);
@@ -48,14 +105,10 @@ export function RelationshipManager({ userId, activeTenantId, onTenantChange }: 
     try {
       const result = await createTenant(userId, newTenantName, newTenantLabel);
       if (result) {
-        await loadTenants();
-        setShowCreateTenant(false);
-        setNewTenantName('');
-        onTenantChange(result.tenant.id);
+        startProvisioningPoll(result.tenant.id);
       }
     } catch (error: any) {
       setTenantError(error.message);
-    } finally {
       setTenantLoading(false);
     }
   };
@@ -164,41 +217,60 @@ export function RelationshipManager({ userId, activeTenantId, onTenantChange }: 
       {/* Create Tenant Form */}
       {showCreateTenant && (
         <div className="mb-6 p-4 rounded-xl border border-border bg-muted/30">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium">New Relationship</h3>
-            <button onClick={() => setShowCreateTenant(false)}><X className="w-4 h-4" /></button>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Relationship Name</label>
-              <input
-                type="text"
-                value={newTenantName}
-                onChange={(e) => setNewTenantName(e.target.value)}
-                placeholder="e.g. Pranav & Neha"
-                className="w-full px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none text-sm"
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateTenant()}
-              />
+          {provisioningTenantId ? (
+            <div className="py-6 flex flex-col items-center justify-center text-center space-y-4">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <div>
+                <h4 className="font-semibold text-sm">Deploying Secure Space</h4>
+                <p className="text-xs text-muted-foreground mt-1">{provisioningStage}</p>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden max-w-xs">
+                <div 
+                  className="bg-primary h-2 rounded-full transition-all duration-500 ease-out" 
+                  style={{ width: `${provisioningProgress}%` }}
+                ></div>
+              </div>
+              <span className="text-xs font-mono text-muted-foreground">{provisioningProgress}% Complete</span>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Your Label</label>
-              <input
-                type="text"
-                value={newTenantLabel}
-                onChange={(e) => setNewTenantLabel(e.target.value)}
-                placeholder="e.g. Self, Partner 1"
-                className="w-full px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none text-sm"
-              />
-            </div>
-            <button
-              onClick={handleCreateTenant}
-              disabled={tenantLoading}
-              className="w-full py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
-            >
-              {tenantLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Create Relationship
-            </button>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium">New Relationship</h3>
+                <button onClick={() => setShowCreateTenant(false)}><X className="w-4 h-4" /></button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Relationship Name</label>
+                  <input
+                    type="text"
+                    value={newTenantName}
+                    onChange={(e) => setNewTenantName(e.target.value)}
+                    placeholder="e.g. Pranav & Neha"
+                    className="w-full px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none text-sm"
+                    onKeyDown={(e) => e.key === 'Enter' && handleCreateTenant()}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Your Label</label>
+                  <input
+                    type="text"
+                    value={newTenantLabel}
+                    onChange={(e) => setNewTenantLabel(e.target.value)}
+                    placeholder="e.g. Self, Partner 1"
+                    className="w-full px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary outline-none text-sm"
+                  />
+                </div>
+                <button
+                  onClick={handleCreateTenant}
+                  disabled={tenantLoading}
+                  className="w-full py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                >
+                  {tenantLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Create Relationship
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

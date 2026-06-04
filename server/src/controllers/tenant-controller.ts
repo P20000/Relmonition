@@ -39,6 +39,8 @@ export const createTenant = async (req: Request, res: Response) => {
       id: tenantId,
       name: tenantName || null,
       connectionCode,
+      status: 'provisioning',
+      provisioningAttempts: 0,
       createdAt: new Date(),
     });
 
@@ -54,6 +56,33 @@ export const createTenant = async (req: Request, res: Response) => {
     res.status(201).json({ message: 'Tenant created', tenantId, connectionCode });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to create tenant', details: error.message });
+  }
+};
+
+export const getTenantStatus = async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as AuthorizedRequest).tenantId!;
+    const { client } = tenantManager.getGlobalClient();
+
+    const tenants = await client
+      .select({
+        status: schema.tenants.status,
+        provisioningError: schema.tenants.provisioningError,
+      })
+      .from(schema.tenants)
+      .where(eq(schema.tenants.id, tenantId))
+      .limit(1);
+
+    if (tenants.length === 0) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    res.json({
+      status: tenants[0].status || 'active',
+      error: tenants[0].provisioningError || null,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve tenant status', details: error.message });
   }
 };
 

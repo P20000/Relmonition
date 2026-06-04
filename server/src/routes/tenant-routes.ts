@@ -7,6 +7,7 @@ import {
   regenerateConnectionCode,
   leaveTenant,
   deleteTenant,
+  getTenantStatus,
 } from '../controllers/tenant-controller';
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/authorize';
@@ -23,6 +24,7 @@ router.post('/create', validateBody(createTenantSchema), createTenant);
 router.post('/join', validateBody(joinTenantSchema), joinTenant);
 
 // Tenant-specific operations (role-authorized)
+router.get('/:tenantId/status', authorize(), getTenantStatus);
 router.get('/:tenantId', authorize(), getTenantData);
 router.post('/:tenantId/regenerate-code', authorize('owner'), regenerateConnectionCode);
 router.delete('/:tenantId/leave', authorize(), leaveTenant);

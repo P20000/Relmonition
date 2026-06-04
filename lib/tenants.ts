@@ -120,3 +120,15 @@ export async function deleteTenant(tenantId: string, userId: string): Promise<vo
     throw new Error(err.error || 'Failed to delete relationship');
   }
 }
+
+export async function getTenantStatus(
+  tenantId: string
+): Promise<{ status: string; error: string | null }> {
+  const res = await fetch(`${API_URL}/tenant/${tenantId}/status`, {
+    credentials: 'include'
+  });
+  if (!res.ok) {
+    throw new Error('Failed to fetch tenant status');
+  }
+  return res.json();
+}

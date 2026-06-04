@@ -1,0 +1,57 @@
+{{- if .Values.worker.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: relmonition-worker
+    tenant: {{ .Values.coupleId | quote }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: relmonition-worker
+      tenant: {{ .Values.coupleId | quote }}
+  template:
+    metadata:
+      labels:
+        app: relmonition-worker
+        tenant: {{ .Values.coupleId | quote }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-worker-sa
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "2"
+          - name: single-request-reopen
+      containers:
+      - name: worker
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: Always
+        command: ["node", "server/dist/worker.js"]
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 250m
+        env:
+          - name: TURSO_CONNECTION_URL
+            value: {{ .Values.turso.connectionUrl | quote }}
+          - name: TURSO_AUTH_TOKEN
+            value: {{ .Values.turso.authToken | quote }}
+          - name: GEMINI_API_KEY
+            value: {{ .Values.geminiApiKey | quote }}
+          - name: JWT_SECRET
+            value: {{ .Values.jwtSecret | quote }}
+          - name: ENCRYPTION_KEY
+            value: {{ .Values.encryptionKey | quote }}
+          - name: NODE_ENV
+            value: {{ .Values.nodeEnv | quote }}
+          - name: GITHUB_ACTIONS
+            value: "true"
+          - name: ECR_REGISTRY
+            value: {{ index (splitList "/" .Values.image.repository) 0 | quote }}
+{{- end }}
