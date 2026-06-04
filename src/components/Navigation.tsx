@@ -4,6 +4,7 @@ import { LogoIcon } from './ui/LogoIcon';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import Link from 'next/link';
 
 type NavigationProps = {
   activeView: 'dashboard' | 'journal' | 'coach' | 'settings' | 'personality';
@@ -36,17 +37,17 @@ export function Navigation({ activeView, onNavigate }: NavigationProps) {
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-xl">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center" aria-hidden="true">
               <LogoIcon className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl">Relmonition</h1>
+              <h1 className="text-xl font-medium">Relmonition</h1>
               <p className="text-xs text-muted-foreground hidden md:block">
                 Relationship Wellness Platform
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-2">

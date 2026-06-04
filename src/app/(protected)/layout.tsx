@@ -16,7 +16,7 @@ export default function ProtectedLayout({
 
   useEffect(() => {
     if (!token) {
-      router.push("/");
+      router.push("/login");
     }
   }, [token, router]);
 
