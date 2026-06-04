@@ -18,6 +18,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
         prometheus.io/path: "/metrics"
+        rollout-trigger: {{ now | date "20060102150405" | quote }}
     spec:
       dnsConfig:
         options:

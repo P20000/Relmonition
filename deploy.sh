@@ -30,6 +30,13 @@ kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | \
   kubectl label -f - compliance-tier=hipaa-gdpr encryption-required=true --local -o yaml | \
   kubectl apply -f -
 
+# Only enable worker on the control-plane tenant (001)
+if [ "${TENANT_ID}" = "001" ]; then
+  WORKER_FLAG="--set worker.enabled=true"
+else
+  WORKER_FLAG="--set worker.enabled=false"
+fi
+
 # Explicitly setting all variables
 helm upgrade --install "couple-${TENANT_ID}" ./charts/relmonition-tenant -n "${NAMESPACE}" \
   --set image.repository=$ECR_URL \
@@ -40,6 +47,7 @@ helm upgrade --install "couple-${TENANT_ID}" ./charts/relmonition-tenant -n "${N
   --set geminiApiKey="${GEMINI_API_KEY}" \
   --set jwtSecret="${JWT_SECRET}" \
   --set encryptionKey="${ENCRYPTION_KEY}" \
-  --set nodeEnv="production"
+  --set nodeEnv="production" \
+  ${WORKER_FLAG}
 
 echo "✅ Backend Deployment Successful for tenant ${TENANT_ID}!"

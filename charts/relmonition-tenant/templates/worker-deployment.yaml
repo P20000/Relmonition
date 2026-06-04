@@ -18,6 +18,8 @@ spec:
       labels:
         app: relmonition-worker
         tenant: {{ .Values.coupleId | quote }}
+      annotations:
+        rollout-trigger: {{ now | date "20060102150405" | quote }}
     spec:
       serviceAccountName: {{ .Release.Name }}-worker-sa
       dnsConfig:
