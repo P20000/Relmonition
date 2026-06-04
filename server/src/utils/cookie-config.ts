@@ -18,11 +18,11 @@ export const getAuthCookieConfig = (
   return {
     httpOnly: true,
     secure: isProduction, // Requires HTTPS in prod; false for localhost dev
-    sameSite: isProduction ? 'strict' : 'lax', // 'lax' allows cross-port localhost
+    sameSite: isProduction ? 'none' : 'lax', // 'none' allows cross-subdomain cookies in prod
     maxAge: maxAgeMs,
     path: '/',
     domain: isProduction 
-      ? cookieDomain || '.relmonition.com' 
+      ? cookieDomain || process.env.COOKIE_DOMAIN || '.relmonition.com' 
       : undefined, // localhost doesn't need domain; cookies work across ports
   };
 };

@@ -60,3 +60,6 @@ spec:
             value: {{ .Values.encryptionKey | quote }}
           - name: NODE_ENV
             value: {{ .Values.nodeEnv | quote }}
+          - name: COOKIE_DOMAIN
+            value: ".{{ .Values.ingress.domain }}"
+
