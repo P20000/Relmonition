@@ -405,6 +405,93 @@ kubectl logs -n couple-<TENANT_ID> -l app=relmonition-server --tail=30
 
 ---
 
+# The Relmonition Tour: From Code to Cloud
+
+Welcome to **Relmonition**. This isn’t just an app; it's a secure, living intelligence platform designed to learn, remember, and guide couples through their relationship journey. 
+
+To truly understand Relmonition, we need to take a journey from the very foundation of the cloud infrastructure all the way up to the pixels on the user's screen. 
+
+Let's begin the story of how Relmonition comes to life.
+
+---
+
+## Chapter 1: Pouring the Concrete (The Infrastructure Story)
+
+Imagine buying a plot of land to build a massive, highly secure apartment complex where every apartment is completely soundproofed, has its own dedicated plumbing, and requires fingerprint access. This is exactly what running **Terraform** does for Relmonition.
+
+When you navigate to the `terraform/` folder and type `terraform apply`, you are unleashing the "Architect." 
+
+Here is what the Architect builds in the AWS Cloud (specifically in `ap-south-1`):
+
+1. **The Fences (VPC):** It creates a Virtual Private Cloud (VPC) with public and private subnets. This ensures that the sensitive databases and worker nodes are hidden behind a NAT Gateway, completely invisible to the public internet.
+2. **The Vault (KMS):** It spins up an AWS KMS (Key Management Service) Key. This is the master lock. Everything from Kubernetes secrets to Docker images will be encrypted using this key.
+3. **The Cargo Bay (ECR):** It builds an Elastic Container Registry. When you push your application code, it gets securely boxed into a Docker container and stored here, strictly encrypted and scanned for vulnerabilities.
+4. **The Foundation (EKS):** The most complex piece—the Amazon Elastic Kubernetes Service cluster. It provisions secure, spot-instance compute nodes running Bottlerocket (a hardened, container-optimized OS) to execute the actual application code. It enables immutable HIPAA audit logging so every API call is recorded.
+5. **The Front Door (NGINX Ingress & ACM):** Finally, it sets up an NGINX Ingress controller and attaches a TLS 1.3 certificate via AWS Certificate Manager. This ensures that all traffic to `relmonition.dpdns.org` is encrypted in transit.
+
+> [!IMPORTANT]
+> **The Purpose:** Terraform guarantees that your infrastructure is reproducible, audited, and hardened. If disaster strikes, you don't manually click through AWS consoles—you simply ask the Architect to rebuild the entire city from scratch.
+
+---
+
+## Chapter 2: The Tenant Moves In (The Deployment Story)
+
+Now the city is built, but it's empty. How does a couple actually move in?
+
+Relmonition uses a **Multi-Tenant Architecture**, but with a twist. Instead of putting everyone in the same room and trusting them to close their eyes, Relmonition gives every couple their own isolated unit.
+
+When a push is made to the `main` branch, the CI/CD pipeline wakes up. It builds the Docker image and runs the `deploy.sh` script.
+
+If a new couple (e.g., Tenant `001`) signs up, the deployment script executes the following magic:
+1. **The Namespace:** It tells Kubernetes to carve out a dedicated namespace: `couple-001`. It stamps this namespace with strict compliance labels (`compliance-tier=hipaa-gdpr`).
+2. **The Helm Chart:** It uses Helm (a package manager for Kubernetes) to inject the Relmonition backend specifically into that namespace. 
+3. **The Database:** The tenant is assigned either a row-level isolated space in the global Turso database, or, for premium users, a completely dedicated, edge-replicated Turso (libSQL) database instance just for them.
+
+The result? `couple-001` has their API traffic routed securely to their own pods, connecting to their own isolated database. If one couple's pod crashes, no one else notices. 
+
+---
+
+## Chapter 3: The User Journey (A Feature Tour)
+
+Now that the backend is humming, let's look at what the couple experiences.
+
+### 1. Identity & The Handshake
+It starts at `/auth/register`. A user creates an account, and the backend hashes their password via `bcryptjs`. They create a "Relationship Tenant" and generate a 6-character connection code to invite their partner. Once the partner joins, they are cryptographically bound to the same isolated tenant context.
+
+### 2. The Journaling Engine (The Memory Bank)
+A relationship requires reflection. Every day, Relmonition presents users with a dynamic, clinically grounded prompt. 
+- **Privacy First:** When User A writes a reflection, User B *cannot* read it. The database enforces strict `userId` boundaries.
+- **The Magic (Embed on Write):** Every time a user saves a journal entry, the backend silently calls out to **Google Gemini** (via `embeddings-service.ts`), translates the emotional text into a 768-dimensional mathematical vector, and saves it. The system is literally building a "memory."
+
+### 3. The Intelligence Layer (RAG & The AI Coach)
+This is the crown jewel. Couples can navigate to the **AI Coach** interface and ask, *"Why do we keep arguing about chores?"*
+Here is what happens in milliseconds:
+1. **Semantic Retrieval (RAG):** The backend takes the question, converts it to a vector, and searches the couple's *entire historical database* for memories that semantically match the concept of "chores" and "frustration."
+2. **The Grounded Prompt:** It gathers these past journal entries and injects them into a massive prompt: *"You are an AI coach. Here is what this couple has been experiencing over the last 6 months regarding chores..."*
+3. **Streaming Response:** The LLM (Gemini or OpenAI) streams a personalized, empathetic, and historically accurate response back to the UI in real-time, complete with pulsing "thinking" animations.
+
+### 4. The Analytics Dashboard (The Vitals)
+Users don't just want to talk; they want to see progress. The Dashboard visualizes:
+- **The Gottman Ratio:** Tracking the critical 5:1 ratio of positive to negative interactions.
+- **Connection Health Score:** A living 0-100% heartbeat of the relationship derived from recent sentiments.
+- **Actionable Insight Cards:** AI-curated "Best Moments" and "Improvements Required" to gently guide behavior.
+
+### 5. Personality & Compatibility
+As couples journal, a background worker (`metrics-service.ts`) periodically reads their entries and synthesizes a living **Partner Profile**. It extracts their core traits, communication styles, triggers, and traumas. The platform then generates a **Compatibility Analysis**, offering a dynamic percentage match and targeted growth opportunities.
+
+---
+
+## Chapter 4: The Safety Net (Compliance)
+
+Relationships involve highly sensitive data. Relmonition's final layer is absolute compliance.
+- **Right to be Forgotten:** If a couple breaks up or wishes to leave, the `Deletion Orchestrator` triggers a cascading wipe. It deletes their Turso database records, erases their vector embeddings, deletes their chat uploads, and destroys the Kubernetes namespace. Ghost data ceases to exist.
+- **Audit Logs:** Every API request is tracked with IP, User Agent, and action so the platform remains fully accountable.
+
+## Summary
+
+When you type `terraform apply` and run `./deploy.sh`, you aren't just starting a server. You are constructing an encrypted, multi-tenant fortress equipped with vector memory engines and streaming AI, purpose-built to help human beings understand each other better.
+
+
 ### Built by
 
 **Pranav Dwivedi** — [LinkedIn](https://www.linkedin.com/in/pranav-dwivedi-535658219/)

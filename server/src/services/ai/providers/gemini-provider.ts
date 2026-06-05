@@ -43,9 +43,13 @@ export class GeminiProvider implements AIProvider {
           console.log("[Gemini] Stream aborted by signal");
           return;
         }
-        const chunkText = chunk.text();
-        // Skip empty thinking-phase chunks (emitted by gemini-2.5-flash before actual output)
-        if (chunkText) yield chunkText;
+        try {
+          const chunkText = chunk.text();
+          // Skip empty thinking-phase chunks (emitted by gemini-2.5-flash before actual output)
+          if (chunkText) yield chunkText;
+        } catch (e) {
+          console.warn("[Gemini] Skipped unparsable chunk");
+        }
       }
     } catch (error) {
       console.error("[Gemini] Streaming Error:", error);

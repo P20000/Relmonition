@@ -22,7 +22,7 @@ export const getAuthCookieConfig = (
     maxAge: maxAgeMs,
     path: '/',
     domain: isProduction 
-      ? cookieDomain || process.env.COOKIE_DOMAIN || '.relmonition.com' 
+      ? cookieDomain || process.env.COOKIE_DOMAIN || '.relmonition.dpdns.org' 
       : undefined, // localhost doesn't need domain; cookies work across ports
   };
 };

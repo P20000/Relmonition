@@ -6,9 +6,9 @@ let _client: GoogleGenerativeAI | null = null;
 
 function getGeminiClient(): GoogleGenerativeAI {
   if (!_client) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.LLM_API_KEY;
     if (!apiKey) {
-      throw new Error('[EmbeddingsService] GEMINI_API_KEY is not set in environment variables.');
+      throw new Error('[EmbeddingsService] GEMINI_API_KEY or LLM_API_KEY is not set in environment variables.');
     }
     _client = new GoogleGenerativeAI(apiKey);
   }
