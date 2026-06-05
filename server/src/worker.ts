@@ -1,3 +1,4 @@
+import './utils/dns-patch';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import * as schema from './db/schema';
@@ -8,6 +9,7 @@ import path from 'path';
 
 // Load environment variables
 dotenv.config();
+
 
 const url = process.env.TURSO_CONNECTION_URL || process.env.TURSO_API_URL;
 const authToken = process.env.TURSO_AUTH_TOKEN || process.env.TURSO_API_TOKEN;

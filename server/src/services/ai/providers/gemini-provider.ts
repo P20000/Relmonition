@@ -15,7 +15,10 @@ export class GeminiProvider implements AIProvider {
   async generateText(prompt: string, systemInstruction?: string): Promise<string> {
     const model = this.genAI.getGenerativeModel({ 
       model: this.modelName,
-      systemInstruction: systemInstruction 
+      systemInstruction: systemInstruction,
+      // Disable thinking phase: gemini-2.5-flash thinking tokens are silent (empty chunks)
+      // which cause the frontend to hang indefinitely on "Thinking..." with no output.
+      generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as any
     });
 
     const result = await callWithRetry(() => model.generateContent(prompt));
@@ -30,7 +33,10 @@ export class GeminiProvider implements AIProvider {
   ): AsyncGenerator<string> {
     const model = this.genAI.getGenerativeModel({ 
       model: this.modelName,
-      systemInstruction: systemInstruction 
+      systemInstruction: systemInstruction,
+      // Disable thinking phase: gemini-2.5-flash thinking tokens are silent (empty chunks)
+      // which cause the frontend to hang indefinitely on "Thinking..." with no output.
+      generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as any
     });
 
     try {
@@ -44,7 +50,8 @@ export class GeminiProvider implements AIProvider {
           return;
         }
         const chunkText = chunk.text();
-        yield chunkText;
+        // Skip empty thinking-phase chunks (emitted by gemini-2.5-flash before actual output)
+        if (chunkText) yield chunkText;
       }
     } catch (error) {
       console.error("[Gemini] Streaming Error:", error);

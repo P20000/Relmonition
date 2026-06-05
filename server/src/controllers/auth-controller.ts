@@ -98,6 +98,18 @@ export const login = async (req: Request, res: Response) => {
 
     // Set HttpOnly Cookie
     const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction && process.env.COOKIE_DOMAIN) {
+      const parentDomain = process.env.COOKIE_DOMAIN.startsWith('api.')
+        ? '.' + process.env.COOKIE_DOMAIN.slice(4)
+        : process.env.COOKIE_DOMAIN;
+      res.clearCookie('access_token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+        domain: parentDomain
+      });
+    }
     const cookieConfig = getAuthCookieConfig({ isProduction }, 7 * 24 * 60 * 60 * 1000);
     res.cookie('access_token', jwtToken, cookieConfig);
 
@@ -140,6 +152,18 @@ export const logout = async (req: Request, res: Response) => {
   }
 
   const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction && process.env.COOKIE_DOMAIN) {
+    const parentDomain = process.env.COOKIE_DOMAIN.startsWith('api.')
+      ? '.' + process.env.COOKIE_DOMAIN.slice(4)
+      : process.env.COOKIE_DOMAIN;
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      domain: parentDomain
+    });
+  }
   const cookieConfig = getAuthCookieConfig({ isProduction }, 0);
   res.clearCookie('access_token', cookieConfig);
 
@@ -218,6 +242,18 @@ export const deleteAccount = async (req: Request, res: Response) => {
 
     // Clear session cookie
     const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction && process.env.COOKIE_DOMAIN) {
+      const parentDomain = process.env.COOKIE_DOMAIN.startsWith('api.')
+        ? '.' + process.env.COOKIE_DOMAIN.slice(4)
+        : process.env.COOKIE_DOMAIN;
+      res.clearCookie('access_token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+        domain: parentDomain
+      });
+    }
     const cookieConfig = getAuthCookieConfig({ isProduction }, 0);
     res.clearCookie('access_token', cookieConfig);
 
