@@ -98,10 +98,13 @@ export const login = async (req: Request, res: Response) => {
 
     // Set HttpOnly Cookie
     const isProduction = process.env.NODE_ENV === 'production';
-    if (isProduction && process.env.COOKIE_DOMAIN) {
-      const parentDomain = process.env.COOKIE_DOMAIN.startsWith('api.')
-        ? '.' + process.env.COOKIE_DOMAIN.slice(4)
-        : process.env.COOKIE_DOMAIN;
+    const parentDomain = isProduction && process.env.COOKIE_DOMAIN
+      ? (process.env.COOKIE_DOMAIN.startsWith('api.')
+          ? '.' + process.env.COOKIE_DOMAIN.slice(4)
+          : process.env.COOKIE_DOMAIN)
+      : undefined;
+    if (isProduction && parentDomain) {
+      // Clear any stale cookie scoped to the wrong domain first
       res.clearCookie('access_token', {
         httpOnly: true,
         secure: true,
@@ -110,7 +113,7 @@ export const login = async (req: Request, res: Response) => {
         domain: parentDomain
       });
     }
-    const cookieConfig = getAuthCookieConfig({ isProduction }, 7 * 24 * 60 * 60 * 1000);
+    const cookieConfig = getAuthCookieConfig({ isProduction, cookieDomain: parentDomain }, 7 * 24 * 60 * 60 * 1000);
     res.cookie('access_token', jwtToken, cookieConfig);
 
     res.json({ 
@@ -152,10 +155,12 @@ export const logout = async (req: Request, res: Response) => {
   }
 
   const isProduction = process.env.NODE_ENV === 'production';
-  if (isProduction && process.env.COOKIE_DOMAIN) {
-    const parentDomain = process.env.COOKIE_DOMAIN.startsWith('api.')
-      ? '.' + process.env.COOKIE_DOMAIN.slice(4)
-      : process.env.COOKIE_DOMAIN;
+  const parentDomain = isProduction && process.env.COOKIE_DOMAIN
+    ? (process.env.COOKIE_DOMAIN.startsWith('api.')
+        ? '.' + process.env.COOKIE_DOMAIN.slice(4)
+        : process.env.COOKIE_DOMAIN)
+    : undefined;
+  if (isProduction && parentDomain) {
     res.clearCookie('access_token', {
       httpOnly: true,
       secure: true,
@@ -164,7 +169,7 @@ export const logout = async (req: Request, res: Response) => {
       domain: parentDomain
     });
   }
-  const cookieConfig = getAuthCookieConfig({ isProduction }, 0);
+  const cookieConfig = getAuthCookieConfig({ isProduction, cookieDomain: parentDomain }, 0);
   res.clearCookie('access_token', cookieConfig);
 
   res.json({ success: true, message: 'Logged out successfully' });
@@ -242,10 +247,12 @@ export const deleteAccount = async (req: Request, res: Response) => {
 
     // Clear session cookie
     const isProduction = process.env.NODE_ENV === 'production';
-    if (isProduction && process.env.COOKIE_DOMAIN) {
-      const parentDomain = process.env.COOKIE_DOMAIN.startsWith('api.')
-        ? '.' + process.env.COOKIE_DOMAIN.slice(4)
-        : process.env.COOKIE_DOMAIN;
+    const parentDomain = isProduction && process.env.COOKIE_DOMAIN
+      ? (process.env.COOKIE_DOMAIN.startsWith('api.')
+          ? '.' + process.env.COOKIE_DOMAIN.slice(4)
+          : process.env.COOKIE_DOMAIN)
+      : undefined;
+    if (isProduction && parentDomain) {
       res.clearCookie('access_token', {
         httpOnly: true,
         secure: true,
@@ -254,7 +261,7 @@ export const deleteAccount = async (req: Request, res: Response) => {
         domain: parentDomain
       });
     }
-    const cookieConfig = getAuthCookieConfig({ isProduction }, 0);
+    const cookieConfig = getAuthCookieConfig({ isProduction, cookieDomain: parentDomain }, 0);
     res.clearCookie('access_token', cookieConfig);
 
     res.json({ success: true, message: 'Account securely deleted.' });
