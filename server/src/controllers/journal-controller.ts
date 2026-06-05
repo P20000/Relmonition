@@ -139,28 +139,19 @@ export const createEntry = async (req: Request, res: Response) => {
 export const getEntries = async (req: Request, res: Response) => {
   try {
     const tenantId = (req as AuthorizedRequest).tenantId!;
-    const userId = req.query.userId ? String(req.query.userId) : undefined;
+    const userId = (req as AuthenticatedRequest).user!.userId;
     const db = await getDb(tenantId);
 
-    let query = db
+    const query = db
       .select()
       .from(schema.journalEntries)
-      .where(eq(schema.journalEntries.tenantId, tenantId))
-      .orderBy(desc(schema.journalEntries.createdAt));
-
-    if (userId) {
-      // @ts-ignore - Adding dynamic filter
-      query = db
-        .select()
-        .from(schema.journalEntries)
-        .where(
-          and(
-            eq(schema.journalEntries.tenantId, tenantId),
-            eq(schema.journalEntries.userId, userId)
-          )
+      .where(
+        and(
+          eq(schema.journalEntries.tenantId, tenantId),
+          eq(schema.journalEntries.userId, userId)
         )
-        .orderBy(desc(schema.journalEntries.createdAt));
-    }
+      )
+      .orderBy(desc(schema.journalEntries.createdAt));
 
     const entries = await query.limit(20);
 
