@@ -255,7 +255,7 @@ export function AICoach() {
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${activeTenantId || '001'}/api/v1`}/coach/chat/stream`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${activeTenantId || 'lobby'}/api/v1`}/coach/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -300,7 +300,7 @@ export function AICoach() {
     setIsSending(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${activeTenantId || '001'}/api/v1`}/coach/chat/regenerate`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${activeTenantId || 'lobby'}/api/v1`}/coach/chat/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -332,7 +332,7 @@ export function AICoach() {
     setIsEditing(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${activeTenantId || '001'}/api/v1`}/coach/chat/edit`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${activeTenantId || 'lobby'}/api/v1`}/coach/chat/edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

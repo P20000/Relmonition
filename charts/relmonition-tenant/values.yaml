@@ -47,6 +47,6 @@ metrics:
   # Set to false to disable the ServiceMonitor CRD and Prometheus scraping for this tenant
   enabled: true
 
-# Background worker settings (should only be enabled on control plane / fallback tenant 001)
+# Background worker settings (should only be enabled on control plane / fallback tenant lobby)
 worker:
   enabled: false

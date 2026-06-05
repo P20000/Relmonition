@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# Accept tenant ID as first argument, default to 001
-TENANT_ID="${1:-001}"
+# Accept tenant ID as first argument, default to lobby
+TENANT_ID="${1:-lobby}"
 
 echo "🚀 Starting Deployment (Backend) for Tenant: ${TENANT_ID}..."
 
@@ -30,8 +30,8 @@ kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | \
   kubectl label -f - compliance-tier=hipaa-gdpr encryption-required=true --local -o yaml | \
   kubectl apply -f -
 
-# Only enable worker on the control-plane tenant (001)
-if [ "${TENANT_ID}" = "001" ]; then
+# Only enable worker on the control-plane tenant (lobby)
+if [ "${TENANT_ID}" = "lobby" ]; then
   WORKER_FLAG="--set worker.enabled=true"
 else
   WORKER_FLAG="--set worker.enabled=false"

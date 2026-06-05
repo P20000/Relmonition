@@ -4,10 +4,10 @@ Enable the system to automatically detect and recreate Kubernetes namespaces and
 
 ## Proposed Design
 
-Currently, tenant pods are provisioned asynchronously by the `relmonition-worker` (running inside the `couple-001` control-plane namespace). The worker polls the global database (external to EKS on Turso) for tenants in `'provisioning'` status and runs `deploy.sh <tenant_id>`.
+Currently, tenant pods are provisioned asynchronously by the `relmonition-worker` (running inside the `couple-lobby` control-plane namespace). The worker polls the global database (external to EKS on Turso) for tenants in `'provisioning'` status and runs `deploy.sh <tenant_id>`.
 
 To automate redeployment when the cluster is destroyed and recreated:
-1. When the cluster is redeployed, the user brings up the core control-plane tenant (`001`) via `./deploy.sh 001`. This starts the `relmonition-worker`.
+1. When the cluster is redeployed, the user brings up the core control-plane tenant (`lobby`) via `./deploy.sh lobby`. This starts the `relmonition-worker`.
 2. Upon startup, before entering its polling loop, the worker will run a **self-healing sync check**:
    - Check if `kubectl` is available and has connection to the API server (e.g., by checking the `kube-system` namespace).
    - If reachable, query all existing Kubernetes namespaces starting with `couple-`.

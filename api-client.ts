@@ -7,10 +7,10 @@ const BASE_URL_PROXY = {
       return process.env.NEXT_PUBLIC_API_URL;
     }
     if (typeof window !== 'undefined') {
-      const tenantId = localStorage.getItem('activeTenantId') || '001';
+      const tenantId = localStorage.getItem('activeTenantId') || 'lobby';
       return `https://api.relmonition.dpdns.org/${tenantId}/api/v1`;
     }
-    return 'https://api.relmonition.dpdns.org/001/api/v1';
+    return 'https://api.relmonition.dpdns.org/lobby/api/v1';
   }
 };
 const BASE_URL = BASE_URL_PROXY as unknown as string;

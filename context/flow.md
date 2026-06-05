@@ -90,7 +90,7 @@ jobs:
 
 ```bash
 # deploy.sh (excerpt)
-COUPLE_ID="${1:-001}"
+COUPLE_ID="${1:-lobby}"
 NAMESPACE="couple-${COUPLE_ID}"
 
 # 1️⃣ Namespace with compliance labels
@@ -114,13 +114,13 @@ helm upgrade --install \
 ```mermaid
 %%{init: {'theme': 'forest'}}%%
 graph LR
-    subgraph "🔐 Tenant Namespace: couple-001"
+    subgraph "🔐 Tenant Namespace: couple-lobby"
         direction TB
         NP[🛡️ NetworkPolicy<br/><small>Deny all cross-namespace</small>]
         RQ[📏 ResourceQuota<br/><small>CPU/Mem limits</small>]
         D[🚀 Deployment<br/><small>relmonition-server</small>]
         S[⚖️ Service<br/><small>ClusterIP:3000</small>]
-        I[🌐 Ingress<br/><small>api-001.relmonition.dpdns.org</small>]
+        I[🌐 Ingress<br/><small>api-lobby.relmonition.dpdns.org</small>]
         
         NP --> D
         RQ --> D
@@ -156,7 +156,7 @@ graph LR
 flowchart LR
     User[👤 User] -->|HTTPS| NLB[⚡ AWS NLB]
     NLB -->|TLS 1.3| Ingress[🌐 ingress-nginx]
-    Ingress -->|mTLS| Pod[🚀 couple-001-server]
+    Ingress -->|mTLS| Pod[🚀 couple-lobby-server]
     Pod -->|Encrypted| DB[(🗄️ Turso DB)]
     
     subgraph "🛡️ Security Layers"
@@ -173,9 +173,9 @@ flowchart LR
 ```
 
 ### 🔁 Request Lifecycle
-1. **🌐 Entry**: User hits `https://api-001.relmonition.dpdns.org`
+1. **🌐 Entry**: User hits `https://api-lobby.relmonition.dpdns.org`
 2. **🔓 TLS Termination**: NLB decrypts using ACM-managed cert
-3. **🧭 Routing**: `ingress-nginx` matches host → routes to `couple-001-server:3000`
+3. **🧭 Routing**: `ingress-nginx` matches host → routes to `couple-lobby-server:3000`
 4. **⚙️ Processing**: Node.js app runs in isolated namespace with resource limits
 5. **🗄️ Data Access**: App connects to Turso via K8s Secret (KMS-encrypted at rest)
 6. **🔐 Response**: Traffic re-encrypted in transit; audit logs shipped to CloudWatch
@@ -202,16 +202,16 @@ terraform apply tfplan  # ✅ Review before applying!
 ### 👥 Tenant Management
 ```bash
 # Deploy new tenant (ID must be 3-digit)
-COUPLE_ID=001 ./deploy.sh
+COUPLE_ID=lobby ./deploy.sh
 
 # Verify deployment
-kubectl get all -n couple-001
-kubectl describe networkpolicy -n couple-001
-kubectl get ingress -n couple-001 -o wide
+kubectl get all -n couple-lobby
+kubectl describe networkpolicy -n couple-lobby
+kubectl get ingress -n couple-lobby -o wide
 
 # Debug
-kubectl logs -l app=relmonition -n couple-001 --tail=100
-kubectl exec -it -n couple-001 deploy/relmonition-server -- sh
+kubectl logs -l app=relmonition -n couple-lobby --tail=100
+kubectl exec -it -n couple-lobby deploy/relmonition-server -- sh
 ```
 
 ### 🔍 Monitoring & Audit
@@ -220,8 +220,8 @@ kubectl exec -it -n couple-001 deploy/relmonition-server -- sh
 kubectl get ns -L compliance-tier,encryption-required
 
 # View resource usage per tenant
-kubectl top pods -n couple-001
-kubectl describe resourcequota -n couple-001
+kubectl top pods -n couple-lobby
+kubectl describe resourcequota -n couple-lobby
 
 # Audit trail
 aws cloudtrail lookup-events \
@@ -232,7 +232,7 @@ aws cloudtrail lookup-events \
 ### 🧹 Cleanup (⚠️ Destructive)
 ```bash
 # Delete tenant (irreversible!)
-kubectl delete namespace couple-001
+kubectl delete namespace couple-lobby
 # → Triggers cascading delete: pods, services, ingress, secrets
 
 # Full infra teardown (use with extreme caution)

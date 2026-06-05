@@ -442,12 +442,12 @@ Relmonition uses a **Multi-Tenant Architecture**, but with a twist. Instead of p
 
 When a push is made to the `main` branch, the CI/CD pipeline wakes up. It builds the Docker image and runs the `deploy.sh` script.
 
-If a new couple (e.g., Tenant `001`) signs up, the deployment script executes the following magic:
-1. **The Namespace:** It tells Kubernetes to carve out a dedicated namespace: `couple-001`. It stamps this namespace with strict compliance labels (`compliance-tier=hipaa-gdpr`).
+If a new couple (e.g., Tenant `lobby`) signs up, the deployment script executes the following magic:
+1. **The Namespace:** It tells Kubernetes to carve out a dedicated namespace: `couple-lobby`. It stamps this namespace with strict compliance labels (`compliance-tier=hipaa-gdpr`).
 2. **The Helm Chart:** It uses Helm (a package manager for Kubernetes) to inject the Relmonition backend specifically into that namespace. 
 3. **The Database:** The tenant is assigned either a row-level isolated space in the global Turso database, or, for premium users, a completely dedicated, edge-replicated Turso (libSQL) database instance just for them.
 
-The result? `couple-001` has their API traffic routed securely to their own pods, connecting to their own isolated database. If one couple's pod crashes, no one else notices. 
+The result? `couple-lobby` has their API traffic routed securely to their own pods, connecting to their own isolated database. If one couple's pod crashes, no one else notices. 
 
 ---
 
