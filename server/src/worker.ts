@@ -1,8 +1,8 @@
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import * as schema from './db/schema';
-import { eq, and, isNull, lt } from 'drizzle-orm';
-import { spawn } from 'child_process';
+import { eq, and, isNull, lt, ne } from 'drizzle-orm';
+import { spawn, exec } from 'child_process';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -147,9 +147,82 @@ async function pollAndProcess() {
   }
 }
 
+// Helper to execute terminal commands
+function runCommand(cmd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    exec(cmd, (err, stdout, stderr) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(stdout.trim());
+      }
+    });
+  });
+}
+
+// Check if active database tenants are missing their K8s deployment
+async function syncTenantDeployments() {
+  console.log('[Worker-Sync] Checking for missing tenant deployments in the Kubernetes cluster...');
+  try {
+    // 1. Verify kubectl connectivity and authentication
+    try {
+      await runCommand('kubectl get namespace kube-system');
+    } catch (err: any) {
+      console.warn(`[Worker-Sync] Kubernetes cluster is unreachable or kubectl is not configured: ${err.message}. Skipping deployment sync.`);
+      return;
+    }
+
+    // 2. Fetch all existing namespaces starting with 'couple-'
+    const stdout = await runCommand("kubectl get namespaces -o jsonpath='{.items[*].metadata.name}'");
+    const namespaces = stdout.split(/\s+/).filter((ns) => ns.trim().startsWith('couple-'));
+    const deployedTenantIds = new Set(namespaces.map((ns) => ns.trim().replace('couple-', '')));
+
+    console.log(`[Worker-Sync] Found ${deployedTenantIds.size} tenant namespaces deployed in cluster:`, Array.from(deployedTenantIds));
+
+    // 3. Query all non-deleted, non-provisioning tenants from global DB
+    const tenantsToCheck = await db
+      .select()
+      .from(schema.tenants)
+      .where(
+        and(
+          isNull(schema.tenants.deletedAt),
+          ne(schema.tenants.status, 'provisioning')
+        )
+      );
+
+    const missingTenants = tenantsToCheck.filter((t) => !deployedTenantIds.has(t.id));
+
+    if (missingTenants.length === 0) {
+      console.log('[Worker-Sync] All existing tenants are properly deployed.');
+      return;
+    }
+
+    console.log(`[Worker-Sync] Found ${missingTenants.length} tenants missing from the cluster. Resetting to 'provisioning' to trigger redeployment...`);
+
+    for (const tenant of missingTenants) {
+      console.log(`[Worker-Sync] Queueing redeployment for tenant ${tenant.id} (previous status: ${tenant.status})`);
+      await db
+        .update(schema.tenants)
+        .set({
+          status: 'provisioning',
+          provisioningAttempts: 0,
+          provisioningError: 'Detected missing deployment in cluster (self-healing triggered)',
+        })
+        .where(eq(schema.tenants.id, tenant.id));
+    }
+    console.log('[Worker-Sync] Tenant deployment sync complete. The provisioning loop will now redeploy them.');
+  } catch (error: any) {
+    console.error('[Worker-Sync] Error syncing tenant deployments:', error);
+  }
+}
+
 // Start worker loop
 async function main() {
   console.log('[Worker] Relmonition Provisioning Worker started.');
+
+  // Self-healing check on startup: redeploy any active tenants missing their namespace/pods
+  await syncTenantDeployments();
+
   console.log(`[Worker] Polling database every ${POLL_INTERVAL_MS / 1000}s for new tenants...`);
 
   while (true) {
