@@ -389,6 +389,51 @@ kubectl logs -n couple-<TENANT_ID> -l app=relmonition-server --tail=30
 
 ---
 
+## Monitoring & Observability
+
+Relmonition uses the `kube-prometheus-stack` to provide out-of-the-box monitoring.
+
+### Accessing Grafana
+Grafana is intentionally isolated from the public internet for security. To access the dashboard:
+
+1. **Port-forward the service:**
+   ```bash
+   kubectl port-forward svc/relmonition-monitoring-grafana 3000:80 -n monitoring
+   ```
+2. **Access the UI:** Open [http://localhost:3000](http://localhost:3000) in your browser.
+3. **Log in:** Use the default credentials (Username: `admin`, Password: `CHANGE_ME_BEFORE_DEPLOY`) or your configured secrets.
+
+### Adding Custom Dashboards
+Grafana has a sidecar container that automatically discovers and loads dashboards via Kubernetes ConfigMaps. You do not need to restart the pod.
+
+1. Export or create a Grafana dashboard JSON file.
+2. Wrap it in a `ConfigMap` and apply the `grafana_dashboard: "1"` label.
+
+**Example `custom-dashboard-cm.yaml`:**
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-custom-dashboard
+  namespace: monitoring # Or any namespace
+  labels:
+    grafana_dashboard: "1" # CRITICAL: Triggers the auto-loader
+data:
+  my-dashboard.json: |-
+    {
+      "title": "My Custom Dashboard",
+      ... (paste your full JSON here) ...
+    }
+```
+
+Apply it to the cluster:
+```bash
+kubectl apply -f custom-dashboard-cm.yaml
+```
+The sidecar will instantly mount it and make it available in the Grafana UI.
+
+---
+
 ## Roadmap
 
 - [x] Hierarchical RAG with Gemini embeddings
@@ -490,7 +535,6 @@ Relationships involve highly sensitive data. Relmonition's final layer is absolu
 ## Summary
 
 When you type `terraform apply` and run `./deploy.sh`, you aren't just starting a server. You are constructing an encrypted, multi-tenant fortress equipped with vector memory engines and streaming AI, purpose-built to help human beings understand each other better.
-
 
 ### Built by
 
