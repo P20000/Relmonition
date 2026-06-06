@@ -9,6 +9,7 @@ export interface RetrievedContext {
   content: string;
   similarity: number;
   createdAt: Date;
+  journalDate: string | null;
 }
 
 export class RelationshipRAGEngine {
@@ -38,8 +39,21 @@ export class RelationshipRAGEngine {
 
     // 2. Pull all stored embeddings for this tenant
     const storedEmbeddings = await this.db
-      .select()
+      .select({
+        id: schema.embeddings.id,
+        entryId: schema.embeddings.entryId,
+        chatUploadId: schema.embeddings.chatUploadId,
+        tenantId: schema.embeddings.tenantId,
+        content: schema.embeddings.content,
+        vector: schema.embeddings.vector,
+        createdAt: schema.embeddings.createdAt,
+        journalDate: schema.journalEntries.date,
+      })
       .from(schema.embeddings)
+      .leftJoin(
+        schema.journalEntries,
+        eq(schema.embeddings.entryId, schema.journalEntries.id)
+      )
       .where(eq(schema.embeddings.tenantId, tenantId));
 
     if (storedEmbeddings.length === 0) {
@@ -64,6 +78,7 @@ export class RelationshipRAGEngine {
           content: row.content,
           similarity: cosineSimilarity(queryVector, storedVector),
           createdAt: row.createdAt,
+          journalDate: row.journalDate || null,
         };
       })
       .filter((r): r is RetrievedContext => r !== null)

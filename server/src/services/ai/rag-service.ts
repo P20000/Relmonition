@@ -77,7 +77,23 @@ export async function queryRelationshipMemory(
   // ... (keep logic as is)
   const contextBlock = context.length > 0
     ? context
-        .map((c, i) => `[Memory ${i + 1}] (similarity: ${c.similarity.toFixed(3)})\n${c.content}`)
+        .map((c, i) => {
+          let dateInfo = '';
+          if (c.journalDate) {
+            try {
+              const [y, m, d] = c.journalDate.split('-').map(Number);
+              const dateObj = new Date(Date.UTC(y, m - 1, d));
+              dateInfo = `Recorded on: ${dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`;
+            } catch {
+              dateInfo = `Recorded on: ${c.journalDate}`;
+            }
+          } else if (c.createdAt) {
+            dateInfo = `Recorded on: ${new Date(c.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+          } else {
+            dateInfo = `Recorded on: Unknown Date`;
+          }
+          return `[Memory ${i + 1}] (${dateInfo}, similarity: ${c.similarity.toFixed(3)})\n${c.content}`;
+        })
         .join('\n\n')
     : 'No relevant past entries found.';
 
@@ -154,7 +170,23 @@ export async function* queryRelationshipMemoryStream(
 
   const contextBlock = context.length > 0
     ? context
-        .map((c, i) => `[Memory ${i + 1}] (similarity: ${c.similarity.toFixed(3)})\n${c.content}`)
+        .map((c, i) => {
+          let dateInfo = '';
+          if (c.journalDate) {
+            try {
+              const [y, m, d] = c.journalDate.split('-').map(Number);
+              const dateObj = new Date(Date.UTC(y, m - 1, d));
+              dateInfo = `Recorded on: ${dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`;
+            } catch {
+              dateInfo = `Recorded on: ${c.journalDate}`;
+            }
+          } else if (c.createdAt) {
+            dateInfo = `Recorded on: ${new Date(c.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+          } else {
+            dateInfo = `Recorded on: Unknown Date`;
+          }
+          return `[Memory ${i + 1}] (${dateInfo}, similarity: ${c.similarity.toFixed(3)})\n${c.content}`;
+        })
         .join('\n\n')
     : 'No relevant past entries found.';
 

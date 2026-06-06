@@ -12,3 +12,9 @@ output "eks_cluster_endpoint" {
   description = "The endpoint for the EKS cluster"
   value       = module.eks.cluster_endpoint
 }
+
+output "ingress_load_balancer_hostname" {
+  description = "The hostname of the load balancer created by the ingress controller"
+  value       = data.kubernetes_service.ingress_nginx.status[0].load_balancer[0].ingress[0].hostname
+}
+

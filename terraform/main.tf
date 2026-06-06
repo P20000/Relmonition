@@ -106,4 +106,20 @@ resource "helm_release" "ingress_nginx" {
   # Ensure this is created only after Node Groups are ready,
   # and uninstalled BEFORE the cluster or nodes are destroyed.
   depends_on = [module.eks]
+
+  # Configure the load balancer as a Network Load Balancer (NLB)
+  set {
+    name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type"
+    value = "nlb"
+  }
 }
+
+# Query the Kubernetes Service to get the load balancer hostname
+data "kubernetes_service" "ingress_nginx" {
+  metadata {
+    name      = "ingress-nginx-controller"
+    namespace = "ingress-nginx"
+  }
+  depends_on = [helm_release.ingress_nginx]
+}
+
