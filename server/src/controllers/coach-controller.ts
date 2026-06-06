@@ -192,9 +192,21 @@ export const streamChat = async (req: Request, res: Response) => {
     // Send sessionId header first so frontend knows if it's a new conversation
     res.write(`event: session\ndata: ${JSON.stringify({ sessionId })}\n\n`);
 
-    for await (const chunk of stream) {
-      fullContent += chunk;
-      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    try {
+      for await (const chunk of stream) {
+        fullContent += chunk;
+        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+      }
+    } catch (streamErr: any) {
+      console.error('[Coach Stream Generator Error]:', streamErr);
+      res.write(`event: error\ndata: ${JSON.stringify({ 
+        error: streamErr.message || 'Stream generation failed',
+        details: streamErr.stack || 'No stack trace available'
+      })}\n\n`);
+      res.end();
+      // Decrement active streams gauge
+      coachActiveStreams.dec({ tenant: tenantId });
+      return;
     }
 
     // 5. Save Assistant Message on completion
@@ -217,7 +229,12 @@ export const streamChat = async (req: Request, res: Response) => {
     res.end();
   } catch (error: any) {
     console.error('[Coach Stream] Error:', error);
-    res.status(500).end();
+    // Only try to send 500 if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message || 'Internal server error during stream initialization' });
+    } else {
+      res.end();
+    }
   }
 };
 

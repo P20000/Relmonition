@@ -80,6 +80,16 @@ export function AICoach() {
   const [isEditing, setIsEditing] = useState<string | null>(null); // messageId being edited
   const [editInput, setEditInput] = useState('');
   
+  const [chatError, setChatError] = useState<{
+    message: string;
+    details?: string;
+    type?: string;
+    status?: number;
+    action?: 'send' | 'regenerate' | 'edit';
+    payload?: string;
+  } | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [contextUploads, setContextUploads] = useState<ContextUpload[]>([]);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
@@ -186,60 +196,103 @@ export function AICoach() {
   };
 
   // ─── Streaming Logic ──────────────────────────────────────────────────────
-  const processStream = async (response: Response) => {
+  const processStream = async (response: Response, action?: 'send' | 'regenerate' | 'edit', payload?: string) => {
     const reader = response.body?.getReader();
     if (!reader) return;
 
     setIsStreaming(true);
     const decoder = new TextDecoder();
     let accumulatedContent = '';
+    let currentEvent = 'message';
 
     // Skeleton assistant message
     const assistantMsg: Message = { role: 'assistant', content: '', timestamp: 'Thinking...' };
     setMessages(prev => [...prev.filter(m => m.timestamp !== 'Thinking...'), assistantMsg]);
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.substring(6));
-            if (data.chunk) {
-              accumulatedContent += data.chunk;
-              setMessages(prev => {
-                const updated = [...prev];
-                updated[updated.length - 1] = {
-                  ...updated[updated.length - 1],
-                  content: accumulatedContent,
-                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                };
-                return updated;
-              });
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          if (line.startsWith('event:')) {
+            currentEvent = line.substring(6).trim();
+          } else if (line.startsWith('data:')) {
+            const dataStr = line.substring(5).trim();
+            try {
+              const data = JSON.parse(dataStr);
+              if (currentEvent === 'session') {
+                isUpdatingFromStream.current = true;
+                setActiveSessionId(data.sessionId);
+                loadConversations();
+              } else if (currentEvent === 'error') {
+                setChatError({
+                  message: data.error || 'LLM generation failed',
+                  details: data.details || 'No additional details provided.',
+                  type: 'Generation Error',
+                  action,
+                  payload
+                });
+                // Clean up skeleton thinking message so it doesn't linger
+                setMessages(prev => prev.filter(m => m.timestamp !== 'Thinking...'));
+              } else {
+                // message event
+                if (data.chunk) {
+                  accumulatedContent += data.chunk;
+                  setMessages(prev => {
+                    const updated = [...prev];
+                    const thinkingIdx = updated.findIndex(m => m.timestamp === 'Thinking...');
+                    if (thinkingIdx !== -1) {
+                      updated[thinkingIdx] = {
+                        role: 'assistant',
+                        content: accumulatedContent,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      };
+                    } else {
+                      updated[updated.length - 1] = {
+                        ...updated[updated.length - 1],
+                        content: accumulatedContent,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      };
+                    }
+                    return updated;
+                  });
+                }
+              }
+            } catch (e) {
+              // Ignore partial JSON, but don't crash
             }
-          } catch (e) { /* partial json ignored */ }
-        } else if (line.startsWith('event: session')) {
-          const nextLine = lines[lines.indexOf(line) + 1];
-          if (nextLine?.startsWith('data: ')) {
-            const sessionData = JSON.parse(nextLine.substring(6));
-            isUpdatingFromStream.current = true;
-            setActiveSessionId(sessionData.sessionId);
-            loadConversations();
+            currentEvent = 'message'; // reset
           }
         }
       }
+    } catch (streamErr: any) {
+      console.error('Error reading stream:', streamErr);
+      setChatError({
+        message: streamErr.message || 'Stream connection interrupted',
+        details: 'The connection to the stream was lost mid-generation.',
+        type: 'Stream Connection Error',
+        action,
+        payload
+      });
+      // Clean up skeleton thinking message
+      setMessages(prev => prev.filter(m => m.timestamp !== 'Thinking...'));
+    } finally {
+      setIsStreaming(false);
     }
-    setIsStreaming(false);
   };
 
   const handleSend = async (customQuery?: string) => {
     const query = customQuery || input;
     if (!query.trim() || isSending || isStreaming || !activeTenantId) return;
 
+    setChatError(null);
     setIsSending(true);
     if (!customQuery) setInput('');
     
@@ -269,8 +322,18 @@ export function AICoach() {
         credentials: 'include'
       });
 
-      if (!response.ok) throw new Error('Stream failed');
-      await processStream(response);
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { error: response.statusText || `HTTP error ${response.status}` };
+        }
+        const err = new Error(errorData.error || errorData.message || `Request failed with status ${response.status}`);
+        (err as any).status = response.status;
+        throw err;
+      }
+      await processStream(response, 'send', query);
     } catch (err: any) {
       if (err.name === 'AbortError') {
         setMessages(prev => {
@@ -284,6 +347,16 @@ export function AICoach() {
         });
       } else {
         console.error('Coach Error:', err);
+        setChatError({
+          message: err.message || 'Failed to connect to AI Coach.',
+          details: err.stack || 'Check your internet connection or server configurations.',
+          type: 'Connection / Server Error',
+          status: err.status || 500,
+          action: 'send',
+          payload: query
+        });
+        // Clean up thinking message so we don't hang
+        setMessages(prev => prev.filter(m => m.timestamp !== 'Thinking...'));
       }
     } finally {
       setIsSending(false);
@@ -297,6 +370,7 @@ export function AICoach() {
 
   const handleRegenerate = async () => {
     if (isSending || isStreaming || !activeSessionId) return;
+    setChatError(null);
     setIsSending(true);
 
     try {
@@ -311,6 +385,18 @@ export function AICoach() {
         credentials: 'include'
       });
 
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { error: response.statusText || `HTTP error ${response.status}` };
+        }
+        const err = new Error(errorData.error || errorData.message || `Request failed with status ${response.status}`);
+        (err as any).status = response.status;
+        throw err;
+      }
+
       // Remove last assistant message from UI to refresh it
       setMessages(prev => {
         const last = prev[prev.length - 1];
@@ -318,9 +404,18 @@ export function AICoach() {
         return prev;
       });
 
-      await processStream(response);
-    } catch (err) {
+      await processStream(response, 'regenerate');
+    } catch (err: any) {
       console.error('Regeneration failed', err);
+      setChatError({
+        message: err.message || 'Failed to regenerate response.',
+        details: err.stack || 'Check your internet connection or server configurations.',
+        type: 'Regeneration Error',
+        status: err.status || 500,
+        action: 'regenerate'
+      });
+      // Clean up thinking message
+      setMessages(prev => prev.filter(m => m.timestamp !== 'Thinking...'));
     } finally {
       setIsSending(false);
     }
@@ -328,6 +423,7 @@ export function AICoach() {
 
   const handleEdit = async () => {
     if (!editInput.trim() || isSending || isStreaming || !activeSessionId) return;
+    setChatError(null);
     setIsSending(true);
     setIsEditing(null);
 
@@ -344,6 +440,18 @@ export function AICoach() {
         credentials: 'include'
       });
 
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { error: response.statusText || `HTTP error ${response.status}` };
+        }
+        const err = new Error(errorData.error || errorData.message || `Request failed with status ${response.status}`);
+        (err as any).status = response.status;
+        throw err;
+      }
+
       // Reset messages to the new point
       setMessages(prev => {
         // Find last user index and slice up to there
@@ -354,9 +462,19 @@ export function AICoach() {
         return [...newHistory, { role: 'user', content: editInput, timestamp: 'Edited' }];
       });
 
-      await processStream(response);
-    } catch (err) {
+      await processStream(response, 'edit', editInput);
+    } catch (err: any) {
       console.error('Edit failed', err);
+      setChatError({
+        message: err.message || 'Failed to submit edited prompt.',
+        details: err.stack || 'Check your internet connection or server configurations.',
+        type: 'Edit Prompt Error',
+        status: err.status || 500,
+        action: 'edit',
+        payload: editInput
+      });
+      // Clean up thinking message
+      setMessages(prev => prev.filter(m => m.timestamp !== 'Thinking...'));
     } finally {
       setIsSending(false);
     }
@@ -698,6 +816,83 @@ export function AICoach() {
                 }}
               />
             </div>
+
+            {chatError && (
+              <div className="mx-4 md:mx-6 mb-4 p-4 rounded-2xl border border-destructive/20 bg-destructive/5 backdrop-blur-md flex flex-col gap-2 shadow-lg animate-in slide-in-from-bottom-2 duration-300">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-xl bg-destructive/10 text-destructive shrink-0 mt-0.5 animate-pulse">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                        {chatError.type || 'Error Occurred'}
+                        {chatError.status && (
+                          <span className="px-1.5 py-0.5 rounded bg-destructive/15 text-destructive text-[10px] font-mono font-bold">
+                            {chatError.status}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                        {chatError.message}
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setChatError(null)} 
+                    className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {chatError.details && (
+                  <div className="mt-1">
+                    <button 
+                      onClick={() => setShowErrorDetails(!showErrorDetails)}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      {showErrorDetails ? 'Hide details' : 'Show troubleshooting details'}
+                    </button>
+                    {showErrorDetails && (
+                      <pre className="mt-2 p-3 bg-black/40 border border-white/10 rounded-xl font-mono text-[10px] text-red-300 overflow-x-auto max-h-36 custom-scrollbar whitespace-pre-wrap leading-relaxed shadow-inner">
+                        {chatError.details}
+                      </pre>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-destructive/10">
+                  <button 
+                    onClick={() => setChatError(null)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    Dismiss
+                  </button>
+                  {chatError.action && (
+                    <button 
+                      onClick={() => {
+                        const act = chatError.action;
+                        const pay = chatError.payload;
+                        setChatError(null);
+                        if (act === 'send') {
+                          handleSend(pay);
+                        } else if (act === 'regenerate') {
+                          handleRegenerate();
+                        } else if (act === 'edit') {
+                          if (pay) setEditInput(pay);
+                          handleEdit();
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:shadow-lg hover:shadow-destructive/20 transition-all flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Retry Failed Action
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Input Footer */}
             <div className="p-4 md:p-6 border-t border-border bg-card/30 backdrop-blur-sm flex flex-col gap-3">
