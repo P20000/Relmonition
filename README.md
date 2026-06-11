@@ -434,7 +434,7 @@ The sidecar will instantly mount it and make it available in the Grafana UI.
 
 ---
 
-## Roadmap
+## Implemented Features
 
 - [x] Hierarchical RAG with Gemini embeddings
 - [x] Behavioral analytics engine (sentiment, Gottman metrics)
@@ -443,10 +443,6 @@ The sidecar will instantly mount it and make it available in the Grafana UI.
 - [x] Chat history ingestion (bulk embedding pipeline)
 - [x] Personality profiling & AI compatibility scoring
 - [x] Streaming AI coach with conversation history
-- [ ] BYOK (Bring Your Own KMS Key) for enterprise tenants
-- [ ] SOC 2 Type II compliance certification
-- [ ] Fine-tuned local models for on-device sensitive inference
-- [ ] Dedicated Turso DB provisioning per tenant on signup
 
 ---
 

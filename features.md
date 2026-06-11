@@ -1,6 +1,6 @@
-# Relmonition — Feature Roadmap & Specifications
+# Relmonition — Feature Specifications
 
-This document outlines the granular feature set of the Relmonition platform, categorized by implementation status.
+This document outlines the granular feature set of the Relmonition platform.
 
 ---
 
@@ -95,17 +95,15 @@ Deep synthesis of who you are as individuals and as a couple.
 
 ---
 
-## 🔴 6. Premium & Compliance (Planned)
+## 🟢 6. Compliance & Auditing (Implemented)
 
-Scaling the platform for enterprise-grade security and sustainability.
+Ensuring data privacy and meeting regulatory requirements.
 
-### 6.1 HIPAA Hardening
-- **WORM Audit Logging**: "Write Once, Read Many" logs to track every data access event for compliance.
-- **BYOK (Bring Your Own Key)**: Allowing users to manage their own encryption keys via AWS KMS.
-- **Deletion Orchestrator**: "Right to be Forgotten" cascading deletion that wipes all user data across all shards.
+### 6.1 Right to be Forgotten
+- **Deletion Orchestrator**: "Right to be Forgotten" cascading deletion that wipes all user data across all shards when a user account is deleted.
 
-### 6.2 Monetization
-- **Stripe Integration**: Management of "Free" vs "Premium" account tiers.
+### 6.2 Compliance Auditing
+- **WORM Audit Logging**: Secure "Write Once, Read Many" logs to track account deletion events for compliance.
 
 ---
 

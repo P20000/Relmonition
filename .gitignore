@@ -58,3 +58,4 @@ next-env.d.ts
 
 # Docs
 calc.md
+context/
