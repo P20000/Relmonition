@@ -58,14 +58,7 @@ module "eks" {
     }
   }
 
-  fargate_profiles = {
-    kube_system = {
-      name = "kube-system"
-      selectors = [
-        { namespace = "kube-system" }
-      ]
-    }
-  }
+
 }
 
 # Kubernetes Provider configured to connect to our EKS Cluster

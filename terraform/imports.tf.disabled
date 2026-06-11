@@ -1,0 +1,38 @@
+# -----------------------------------------------------------------------------
+# ONE-TIME IMPORT BLOCKS
+# These tell Terraform to adopt existing AWS resources into state instead of
+# trying to create them from scratch (which causes "AlreadyExists" errors).
+#
+# ⚠️  DELETE THIS FILE after the first successful `terraform apply`.
+#     Once resources are in state, these blocks are no longer needed.
+# -----------------------------------------------------------------------------
+
+# ECR repository already exists in AWS — import it
+import {
+  to = aws_ecr_repository.server
+  id = "relmonition-server"
+}
+
+# KMS key already exists in AWS — import it (ID fetched from AWS)
+import {
+  to = aws_kms_key.eks_secrets
+  id = "113f0c47-8fb3-4ae7-b49c-e84eb63a90bf"
+}
+
+# KMS alias already exists in AWS — import it
+import {
+  to = aws_kms_alias.eks_secrets
+  id = "alias/relmonition-eks-secrets"
+}
+
+# CloudWatch log group already exists in AWS — import it
+import {
+  to = module.eks.aws_cloudwatch_log_group.this[0]
+  id = "/aws/eks/relmonition-cluster/cluster"
+}
+
+# NAT Gateway route already exists in AWS — import it
+import {
+  to = module.vpc.aws_route.private_nat_gateway[0]
+  id = "rtb-002a91ba78fe7db25_0.0.0.0/0"
+}
