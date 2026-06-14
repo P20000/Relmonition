@@ -34,7 +34,7 @@ Relmonition is built on a **Three-Pillar Security Model**:
 
 ### Tenant Data Flow & Auth Lifecycle
 
-<img width="1536" height="1024" alt="Data Flow Diagram" src="https://github.com/user-attachments/assets/72f1663f-924d-4b07-8a5b-56fd9a2c3185" />
+<img width="1024" height="682" alt="image" src="https://github.com/user-attachments/assets/1faea32e-e7a1-4a33-bcdf-076b3dedfa1b" />
 
 ### Request Data Flow
 
