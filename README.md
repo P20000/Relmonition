@@ -30,7 +30,7 @@ Relmonition is built on a **Three-Pillar Security Model**:
 
 ### Infrastructure & CI/CD Topology
 
-<img width="1536" height="1024" alt="Infrastructure Diagram" src="https://github.com/user-attachments/assets/c89b4975-7992-450e-8d8b-8f1171f170a5" />
+<img width="1847" height="258" alt="image" src="https://github.com/user-attachments/assets/e014129b-7f5f-470f-bfd3-0fb6f39b7a70" />
 
 ### Tenant Data Flow & Auth Lifecycle
 
