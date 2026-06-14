@@ -25,6 +25,9 @@ Relmonition is built on a **Three-Pillar Security Model**:
 | **Persistent Memory** | Hierarchical RAG (Vector + Semantic) that grows with the relationship |
 | **Immutable Auditing** | HIPAA/GDPR-aligned compliance labels on every namespace |
 
+### Architectural map
+<img width="1699" height="814" alt="image" src="https://github.com/user-attachments/assets/c12e26a6-7b41-44d3-8dd0-d56907b6c312" />
+
 ### Infrastructure & CI/CD Topology
 
 <img width="1536" height="1024" alt="Infrastructure Diagram" src="https://github.com/user-attachments/assets/c89b4975-7992-450e-8d8b-8f1171f170a5" />
