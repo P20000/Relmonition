@@ -41,21 +41,7 @@ Relmonition is built on a **Three-Pillar Security Model**:
 
 ### Request Data Flow
 
-```mermaid
-graph LR
-    A[User / Browser] --> B{Next.js Frontend}
-    B --> C[Express API — /api/v1]
-    C --> D[Tenant Isolation Layer]
-    D --> E{Context Switch}
-    E --> F[(Dedicated Turso DB)]
-    E --> G[(Global Turso DB)]
-    F --> H[RAG Engine]
-    G --> H
-    H --> I[(Vector Embeddings)]
-    H --> J[LLM Provider\nGemini / OpenAI]
-    J --> K[Streaming Response]
-    K --> B
-```
+<img width="1024" height="682" alt="image" src="https://github.com/user-attachments/assets/3b13f093-ef80-4961-b811-d7db4e007285" />
 
 ---
 
