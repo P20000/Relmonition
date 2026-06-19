@@ -108,7 +108,7 @@ Ensuring data privacy and meeting regulatory requirements.
 ---
 
 ## Technical Stack Overview
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, Lucide Icons.
+- **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS, Lucide Icons.
 - **Backend**: Express (Node.js), Drizzle ORM, Turso (SQLite/libSQL).
 - **AI**: Google Generative AI (Gemini 2.0 Flash), Vector Embeddings.
-- **Infrastructure**: Vercel (Current Deployment), Docker, Terraform (IaC).
+- **Infrastructure**: Vercel (Frontend Deployment), AWS EKS (Backend Cluster), Docker, Terraform (IaC), Helm.

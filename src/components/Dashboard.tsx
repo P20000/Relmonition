@@ -1,19 +1,13 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { Activity, Heart, TrendingUp, Zap, BarChart3, Smile, Sparkles, Shield, Star, Loader2, AlertTriangle, Wrench } from 'lucide-react';
-import { 
-  LineChart, 
-  Line, 
-  AreaChart,
-  Area,
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Legend
-} from 'recharts';
-import { useAuth } from '../context/AuthContext';
+
+import React from 'react';
+import { Heart, TrendingUp, Zap, BarChart3, Sparkles, Shield, Star, AlertTriangle } from 'lucide-react';
+import { useDashboardData } from './dashboard/useDashboardData';
+import { GottmanRatioCard, GottmanEmptyState } from './dashboard/GottmanRatioCard';
+import { InteractionTrendChart } from './dashboard/InteractionTrendChart';
+import { ImprovementsRequiredCard, BestMomentsCard } from './dashboard/InsightCard';
+import { DashboardSkeleton } from './dashboard/DashboardSkeleton';
+import { DashboardError, NoRelationshipSelectedState } from './dashboard/DashboardEmptyState';
 
 const glassCard = {
   background: 'var(--glass-bg)',
@@ -22,467 +16,35 @@ const glassCard = {
   boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
 };
 
-// ─── Skeleton placeholder for loading ────────────────────────────────────────
-function Skeleton({ className }: { className?: string }) {
-  return (
-    <div
-      className={`rounded-lg animate-pulse bg-muted/50 ${className || ''}`}
-    />
-  );
-}
-
-// ─── Empty state for Gottman card ────────────────────────────────────────────
-function GottmanEmptyState() {
-  const circumference = 502.4;
-  return (
-    <div className="p-6 rounded-2xl" style={glassCard}>
-      <div className="flex items-center gap-3 mb-4">
-        <Activity className="w-6 h-6 text-primary" aria-hidden="true" />
-        <h3 className="text-lg font-semibold">Gottman 5:1 Ratio</h3>
-      </div>
-      <p className="text-sm text-muted-foreground mb-6">
-        Positive to negative interactions during conflict
-      </p>
-      <div className="flex flex-col items-center justify-center py-6 gap-4">
-        <div className="relative">
-          <svg className="w-48 h-48" viewBox="0 0 200 200" aria-label="No data yet">
-            <circle cx="100" cy="100" r="80" fill="none" stroke="var(--muted)" strokeWidth="16" strokeDasharray="12 8" />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center flex-col gap-1">
-            <div className="text-3xl font-bold text-muted-foreground/40">5:1</div>
-            <div className="text-xs text-muted-foreground/50 font-medium uppercase tracking-widest">target</div>
-          </div>
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-medium text-foreground/70 mb-1">No interactions logged yet</p>
-          <p className="text-xs text-muted-foreground">Write journal entries to track your ratio</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Gottman card with real data ──────────────────────────────────────────────
-export function GottmanRatioCard({ ratio, sampleWarning }: { ratio: number, sampleWarning?: boolean }) {
-  const circumference = 502.4;
-  const strokeDash = (Math.min(ratio, 7) / 7) * circumference;
-
-  return (
-    <div className="p-6 rounded-2xl" style={glassCard}>
-      <div className="flex items-center gap-3 mb-4">
-        <Activity className="w-6 h-6 text-primary" aria-hidden="true" />
-        <h3 className="text-lg font-semibold">Gottman 5:1 Ratio</h3>
-      </div>
-      <p className="text-sm text-muted-foreground mb-6">
-        Positive to negative interactions during conflict
-      </p>
-      <div className="flex items-center justify-center py-8">
-        <div className="relative">
-          <svg className="w-48 h-48" viewBox="0 0 200 200" aria-label={`Gottman ratio: ${ratio} to 1`}>
-            <circle cx="100" cy="100" r="80" fill="none" stroke="var(--muted)" strokeWidth="16" />
-            <circle
-              cx="100" cy="100" r="80" fill="none"
-              stroke="var(--primary)" strokeWidth="16"
-              strokeDasharray={`${strokeDash} ${circumference}`}
-              strokeLinecap="round"
-              transform="rotate(-90 100 100)"
-              className="transition-all duration-1000 ease-out"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center flex-col">
-            <div className="text-4xl font-bold text-primary">{ratio}</div>
-            <div className="text-sm text-muted-foreground">to 1</div>
-          </div>
-        </div>
-      </div>
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Target:</span>
-          <span className="text-foreground font-medium">5.0+</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground">Status:</span>
-          <span className={ratio >= 5.0 ? 'text-green-500 font-medium flex items-center' : 'text-destructive font-medium flex items-center'}>
-            {ratio >= 5.0 ? 'Healthy' : 'Needs Attention'}
-            {sampleWarning && (
-              <span className="ml-2 text-[10px] uppercase tracking-wider opacity-60 bg-muted px-2 py-0.5 rounded-full cursor-help" title="Need more negative conflict samples to ensure an accurate 5:1 ratio calculation.">
-                Low Data
-              </span>
-            )}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Interaction Chart ──────────────────────────────────────────────────────
-const InteractionTrendChart = React.memo(function InteractionTrendChart({ data }: { data: any[] }) {
-  // Format data for Recharts
-  const chartData = [...data]
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .map(d => ({
-      date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      Bids: d.bidsCount || 0,
-      Repairs: d.repairsCount || 0,
-    }));
-
-  return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-          <defs>
-            <linearGradient id="bidsGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-            </linearGradient>
-            <linearGradient id="repairsGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="#4ade80" stopOpacity={0}/>
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.2} />
-          <XAxis 
-            dataKey="date" 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-          />
-          <YAxis 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-          />
-          <Tooltip 
-            contentStyle={{ 
-              background: 'var(--background/95)', 
-              backdropFilter: 'blur(10px)',
-              border: '1px solid var(--border)', 
-              borderRadius: '12px',
-              fontSize: '12px',
-              boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
-            }}
-          />
-          <Legend 
-            verticalAlign="top" 
-            align="right" 
-            height={36} 
-            iconType="circle"
-            wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-          />
-          <Area 
-            type="monotone" 
-            dataKey="Bids" 
-            stroke="var(--primary)" 
-            strokeWidth={3}
-            fillOpacity={1}
-            fill="url(#bidsGradient)"
-            dot={{ r: 4, fill: 'var(--primary)', strokeWidth: 2, stroke: 'var(--background)' }}
-            activeDot={{ r: 6, strokeWidth: 0 }}
-          />
-          <Area 
-            type="monotone" 
-            dataKey="Repairs" 
-            stroke="#4ade80" 
-            strokeWidth={3}
-            fillOpacity={1}
-            fill="url(#repairsGradient)"
-            dot={{ r: 4, fill: '#4ade80', strokeWidth: 2, stroke: 'var(--background)' }}
-            activeDot={{ r: 6, strokeWidth: 0 }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-});
-
-function ImprovementsRequiredCard({ journals, history }: { journals: any[], history: any[] }) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  const journalImprovements = (journals || [])
-    .filter((j: any) => j.category === 'conflict' || j.sentimentScore < 0)
-    .map((j: any) => ({
-      id: `j-${j.id || j.date}`,
-      date: j.date || j.createdAt,
-      title: 'Journal Entry: Conflict',
-      description: j.content,
-      fix: "Reflect on this moment. Try to use 'I' statements next time and take a timeout if emotions run high.",
-      source: 'journal'
-    }));
-
-  const historyImprovements = (history && history.length > 0) 
-    ? history
-        .filter((h: any) => h.score < 60 && h.summary !== 'Analysis pending.')
-        .map((h: any) => ({
-          id: `h-${h.date}`,
-          date: h.date,
-          title: 'Chat History: Low Connection',
-          description: h.summary,
-          fix: "Communication seemed strained here. Practice active listening and validate your partner's feelings even if you disagree.",
-          source: 'history'
-        }))
-    : [];
-
-  const allImprovements = [...journalImprovements, ...historyImprovements]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 3);
-
-  if (allImprovements.length === 0) {
-    return (
-      <div className="p-6 rounded-2xl flex flex-col h-full" style={glassCard}>
-        <div className="flex items-center gap-3 mb-4">
-          <AlertTriangle className="w-6 h-6 text-destructive" aria-hidden="true" />
-          <h3 className="text-lg font-semibold text-destructive">Improvements Required</h3>
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center py-8">
-          <div className="text-sm text-muted-foreground mt-2">No areas of concern found. Great job!</div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6 rounded-2xl flex flex-col h-full" style={glassCard}>
-      <div className="flex items-center gap-3 mb-6">
-        <AlertTriangle className="w-6 h-6 text-destructive" aria-hidden="true" />
-        <h3 className="text-lg font-semibold text-destructive">Improvements Required</h3>
-      </div>
-      <div className="flex flex-col gap-3">
-        {allImprovements.map((item) => {
-          const d = new Date(item.date);
-          const dayName = d.toLocaleDateString(undefined, { weekday: 'short' });
-          const displayTime = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-          const isExpanded = expandedId === item.id;
-
-          return (
-            <div 
-              key={item.id} 
-              onClick={() => setExpandedId(isExpanded ? null : item.id)}
-              className="p-4 rounded-2xl border border-destructive/20 cursor-pointer transition-all hover:bg-destructive/10 bg-[var(--destructive-muted)]"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex flex-col gap-1 pr-4">
-                  <span className="text-base font-medium text-destructive/90">{dayName}</span>
-                  <span className="text-xs text-muted-foreground opacity-70">
-                    {displayTime} • {item.source === 'journal' ? 'Journal' : 'Chat'}
-                  </span>
-                  <span className="text-sm text-foreground/80 mt-1 line-clamp-1">{item.description}</span>
-                  {!isExpanded && (
-                    <span className="text-xs font-medium text-destructive/80 mt-2 flex items-center gap-1">
-                      Tap to view growth opportunities
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              {isExpanded && (
-                <div className="mt-4 pt-4 border-t border-destructive/20 text-sm text-muted-foreground animate-in slide-in-from-top-2 duration-200">
-                  <p className="mb-4 leading-relaxed text-foreground/90 italic">
-                    "{item.description}"
-                  </p>
-                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                    <div className="flex items-center gap-2 mb-2">
-                       <Wrench className="w-4 h-4 text-destructive" />
-                       <span className="font-semibold text-destructive text-xs uppercase tracking-wider">Suggested Fix</span>
-                    </div>
-                    <p className="text-destructive/90 text-xs leading-relaxed">{item.fix}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-
-function BestMomentsCard({ data }: { data: any[] }) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  if (!data || data.length === 0) {
-    return (
-      <div className="p-6 rounded-2xl flex flex-col h-full" style={glassCard}>
-        <div className="flex items-center gap-3 mb-4">
-          <Star className="w-6 h-6 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-semibold">Best Moments</h3>
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center py-8">
-          <div className="text-4xl font-bold text-muted-foreground">—</div>
-          <div className="text-sm text-muted-foreground mt-2">no data yet</div>
-        </div>
-      </div>
-    );
-  }
-
-  const bestMoments = data.filter(d => d.score >= 80 && d.summary !== 'Analysis pending.');
-
-  if (bestMoments.length === 0) {
-    return (
-      <div className="p-6 rounded-2xl flex flex-col h-full" style={glassCard}>
-        <div className="flex items-center gap-3 mb-4">
-          <Star className="w-6 h-6 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-semibold">Best Moments</h3>
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center py-8">
-          <div className="text-sm text-muted-foreground mt-2">No moments found yet.</div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6 rounded-2xl flex flex-col" style={glassCard}>
-      <div className="flex items-center gap-3 mb-6">
-        <Star className="w-6 h-6 text-primary" aria-hidden="true" />
-        <h3 className="text-lg font-semibold">Best Moments</h3>
-      </div>
-      <div className="flex flex-col gap-3">
-        {bestMoments.slice(0, 3).map((moment) => {
-          const d = new Date(moment.date);
-          const dayName = d.toLocaleDateString(undefined, { weekday: 'short' });
-          const timeString = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-          const displayTime = (timeString && !timeString.includes('12:00 AM') && !timeString.includes('00:00')) 
-            ? timeString 
-            : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-          
-          const isExpanded = expandedId === moment.date;
-
-          return (
-            <div 
-              key={moment.date} 
-              onClick={() => setExpandedId(isExpanded ? null : moment.date)}
-              className="p-4 rounded-2xl border border-border cursor-pointer transition-all hover:bg-[var(--card-hover-bg)] bg-[var(--primary-muted)]"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex flex-col gap-1 pr-4">
-                  <span className="text-base font-medium text-foreground">{dayName}</span>
-                  <span className="text-xs text-muted-foreground opacity-70">
-                    {displayTime}
-                  </span>
-                  <span className="text-sm text-foreground/80 mt-1 line-clamp-1">{moment.summary}</span>
-                </div>
-                <div className="px-2 py-1 rounded-lg bg-primary/20 text-primary/90 text-xs font-semibold border border-primary/10 whitespace-nowrap">
-                  {moment.score}%
-                </div>
-              </div>
-              
-              {isExpanded && (
-                <div className="mt-4 pt-4 border-t border-white/10 text-sm text-muted-foreground animate-in slide-in-from-top-2 duration-200">
-                  <p className="mb-4 leading-relaxed text-foreground/90">
-                    {moment.summary}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/20 border border-white/5 text-xs">
-                       <Smile className="w-3.5 h-3.5 text-primary" />
-                       <span className="font-medium text-foreground/80">{moment.partner1Mood || 'Happy'}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/20 border border-white/5 text-xs">
-                       <Heart className="w-3.5 h-3.5 text-accent" />
-                       <span className="font-medium text-foreground/80">{moment.partner2Mood || 'Joyful'}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── Dashboard ────────────────────────────────────────────────────────────────
 export function Dashboard() {
-  const { userId } = useAuth();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    loading,
+    error,
+    partnerDeparted,
+    insights,
+    journals,
+    history,
+    greeting,
+    hasInteractions,
+    isEmpty,
+    sortedInteractions,
+    totalBids,
+    totalRepairs,
+    gottmanRatio,
+    sampleWarning,
+    healthScore,
+    trend,
+    trendStatus,
+    isPositiveTrend
+  } = useDashboardData();
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const tenantId = localStorage.getItem('activeTenantId');
-        if (!tenantId) {
-          setData({ lastMood: null, insights: [], recentInteractions: [], history: [] });
-          return;
-        }
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${tenantId}/api/v1`;
-        const url = new URL(`${API_URL}/dashboard/${tenantId}`);
-        if (userId) url.searchParams.append('userId', userId);
-        
-        const response = await fetch(url.toString(), {
-          credentials: 'include'
-        });
-        if (!response.ok) throw new Error('Failed to fetch data');
-        setData(await response.json());
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardData();
-  }, [userId]);
-
-  const { partnerDeparted, lastMood, insights, recentInteractions, history, journals, computedMetrics, greeting } = data || {};
-
-  // ... (rest of loading/error states)
   if (loading) {
-    return (
-      <div className="min-h-screen p-4 md:p-8 flex items-center justify-center">
-        <div className="max-w-md mx-auto text-center space-y-8 animate-in fade-in duration-1000 mt-[-10vh]">
-          <div className="relative inline-flex items-center justify-center">
-            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse" />
-            <div className="relative bg-background p-5 rounded-full border border-primary/20 shadow-2xl backdrop-blur-sm">
-              <Loader2 className="w-10 h-10 text-primary animate-spin" />
-            </div>
-          </div>
-          
-          <div className="space-y-3">
-            <h2 className="text-2xl font-medium tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              Updating your stats
-            </h2>
-            <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
-              Fetching latest dashboard values...
-            </p>
-          </div>
-          
-          <div className="w-32 mx-auto h-1 bg-primary/10 rounded-full overflow-hidden">
-             <div className="h-full bg-primary rounded-full animate-pulse opacity-50" />
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error) {
-    return (
-      <div className="min-h-screen p-4 md:p-8 flex items-center justify-center">
-        <div className="text-center p-8 rounded-2xl" style={glassCard}>
-          <p className="text-destructive font-medium mb-2">Unable to load dashboard</p>
-          <p className="text-sm text-muted-foreground">{error}</p>
-        </div>
-      </div>
-    );
+    return <DashboardError error={error} />;
   }
-
-  // ── Detect empty state — no real data at all ───────────────────────────────
-  const hasInteractions = Array.isArray(recentInteractions) && recentInteractions.length > 0;
-  const hasMood = lastMood != null;
-  const isEmpty = !hasInteractions && !hasMood;
-
-  const sortedInteractions = hasInteractions
-    ? [...recentInteractions].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(a.date).getTime())
-    : [];
-
-  const totalBids = sortedInteractions.reduce((s: number, i: any) => s + (i.bidsCount || 0), 0);
-  const totalRepairs = sortedInteractions.reduce((s: number, i: any) => s + (i.repairsCount || 0), 0);
-
-  const { gottmanRatio, sampleWarning, healthScore, trend, trendStatus } = computedMetrics || {};
-  const isPositiveTrend = trend != null && trend >= 0;
 
   return (
     <div className="min-h-screen p-4 md:p-8">
@@ -558,18 +120,12 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* ── No tenant selected ── */}
+        {/* No tenant selected */}
         {isEmpty && !localStorage.getItem('activeTenantId') && (
-          <div className="mb-8 p-8 rounded-3xl text-center" style={glassCard}>
-            <Heart className="w-12 h-12 mx-auto mb-4 text-primary opacity-40" />
-            <h2 className="mb-2">No relationship selected</h2>
-            <p className="text-muted-foreground text-sm">
-              Go to <strong>Settings → Relationships</strong> to create or join a relationship space.
-            </p>
-          </div>
+          <NoRelationshipSelectedState />
         )}
 
-        {/* Connection Health ── real or empty */}
+        {/* Connection Health */}
         <div className="relative mb-8 p-8 rounded-3xl overflow-hidden" style={{ ...glassCard, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-6">
