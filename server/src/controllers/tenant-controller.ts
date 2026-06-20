@@ -450,6 +450,11 @@ export const deleteTenant = async (req: Request, res: Response) => {
       .set({ deletedAt: new Date() })
       .where(eq(schema.tenants.id, tenantId));
 
+    // Asynchronously trigger unprovisioning of Kubernetes resources
+    tenantManager.unprovisionTenant(tenantId).catch((err) => {
+      console.error(`[deleteTenant] Failed to trigger unprovisioning for tenant ${tenantId}:`, err);
+    });
+
     res.json({ message: 'Tenant marked for deletion successfully' });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to delete tenant', details: error.message });

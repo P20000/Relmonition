@@ -23,13 +23,33 @@ export const authorize = (requiredRole?: 'owner' | 'partner') => {
       }
 
       const { userId } = req.user;
-      const tenantId = req.params.tenantId || req.body?.tenantId || req.query.tenantId as string | undefined;
+      const { client } = tenantManager.getGlobalClient();
+      let tenantId: string | undefined;
+
+      if (req.params.tenantId) {
+        tenantId = typeof req.params.tenantId === 'string' ? req.params.tenantId : req.params.tenantId?.[0];
+        // If tenantId is also provided in body or query, it MUST match req.params.tenantId
+        const bodyTenantId = req.body?.tenantId;
+        const queryTenantId = typeof req.query?.tenantId === 'string' ? req.query.tenantId : undefined;
+        if (bodyTenantId && bodyTenantId !== tenantId) {
+          return res.status(400).json({ error: 'Mismatched tenant ID in request body' });
+        }
+        if (queryTenantId && queryTenantId !== tenantId) {
+          return res.status(400).json({ error: 'Mismatched tenant ID in query parameters' });
+        }
+      } else {
+        // No path parameter. Use body or query, but they must match if both are present
+        const bodyTenantId = req.body?.tenantId;
+        const queryTenantId = typeof req.query?.tenantId === 'string' ? req.query.tenantId : undefined;
+        if (bodyTenantId && queryTenantId && bodyTenantId !== queryTenantId) {
+          return res.status(400).json({ error: 'Mismatched tenant ID in body and query' });
+        }
+        tenantId = (bodyTenantId || queryTenantId) as string | undefined;
+      }
 
       if (!tenantId || typeof tenantId !== 'string') {
         return res.status(400).json({ error: 'Tenant ID is required for this operation' });
       }
-
-      const { client } = tenantManager.getGlobalClient();
 
       // Check that tenant is not deleted
       const tenant = await client

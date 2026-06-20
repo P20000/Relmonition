@@ -194,25 +194,57 @@ async function syncTenantDeployments() {
 
     const missingTenants = tenantsToCheck.filter((t) => !deployedTenantIds.has(t.id));
 
-    if (missingTenants.length === 0) {
-      console.log('[Worker-Sync] All existing tenants are properly deployed.');
-      return;
+    // Identify and clean up dangling tenant namespaces (leaks)
+    const activeTenantIds = new Set(tenantsToCheck.map((t) => t.id));
+    // Lobby should not be cleaned up if it is not in the active database tenants check, but it's fine since lobby has no namespace usually, but to be safe let's keep 'lobby' protected
+    const danglingTenantIds = Array.from(deployedTenantIds).filter((id) => !activeTenantIds.has(id) && id !== 'lobby');
+
+    if (danglingTenantIds.length > 0) {
+      console.log(`[Worker-Sync] Found ${danglingTenantIds.length} dangling tenant namespaces in cluster:`, danglingTenantIds);
+      for (const tenantId of danglingTenantIds) {
+        console.log(`[Worker-Sync] Cleaning up dangling tenant namespace ${tenantId}...`);
+        
+        // Spawn undeploy.sh script execution
+        const scriptPath = path.join(__dirname, '../../undeploy.sh');
+        const child = spawn('bash', [scriptPath, tenantId], {
+          env: {
+            ...process.env,
+          },
+        });
+        child.stdout.on('data', (data) => {
+          console.log(`[undeploy-sync:${tenantId}] ${data.toString().trim()}`);
+        });
+        child.stderr.on('data', (data) => {
+          console.error(`[undeploy-sync:${tenantId}-err] ${data.toString().trim()}`);
+        });
+        child.on('close', (code) => {
+          if (code === 0) {
+            console.log(`[Worker-Sync] Successfully cleaned up dangling tenant namespace ${tenantId}`);
+          } else {
+            console.error(`[Worker-Sync] Failed to clean up dangling tenant namespace ${tenantId} (code ${code})`);
+          }
+        });
+      }
     }
 
-    console.log(`[Worker-Sync] Found ${missingTenants.length} tenants missing from the cluster. Resetting to 'provisioning' to trigger redeployment...`);
+    if (missingTenants.length > 0) {
+      console.log(`[Worker-Sync] Found ${missingTenants.length} tenants missing from the cluster. Resetting to 'provisioning' to trigger redeployment...`);
 
-    for (const tenant of missingTenants) {
-      console.log(`[Worker-Sync] Queueing redeployment for tenant ${tenant.id} (previous status: ${tenant.status})`);
-      await db
-        .update(schema.tenants)
-        .set({
-          status: 'provisioning',
-          provisioningAttempts: 0,
-          provisioningError: 'Detected missing deployment in cluster (self-healing triggered)',
-        })
-        .where(eq(schema.tenants.id, tenant.id));
+      for (const tenant of missingTenants) {
+        console.log(`[Worker-Sync] Queueing redeployment for tenant ${tenant.id} (previous status: ${tenant.status})`);
+        await db
+          .update(schema.tenants)
+          .set({
+            status: 'provisioning',
+            provisioningAttempts: 0,
+            provisioningError: 'Detected missing deployment in cluster (self-healing triggered)',
+          })
+          .where(eq(schema.tenants.id, tenant.id));
+      }
+    } else {
+      console.log('[Worker-Sync] No active tenants missing from the cluster.');
     }
-    console.log('[Worker-Sync] Tenant deployment sync complete. The provisioning loop will now redeploy them.');
+    console.log('[Worker-Sync] Tenant deployment sync complete.');
   } catch (error: any) {
     console.error('[Worker-Sync] Error syncing tenant deployments:', error);
   }

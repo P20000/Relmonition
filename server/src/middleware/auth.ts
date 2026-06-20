@@ -6,6 +6,9 @@ import { eq, and } from 'drizzle-orm';
 
 const tenantManager = new TenantDatabaseManager();
 
+if (!process.env.JWT_SECRET && (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging')) {
+  throw new Error('FATAL: JWT_SECRET environment variable is not defined.');
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_fallback_key_12345';
 
 export interface AuthUser {

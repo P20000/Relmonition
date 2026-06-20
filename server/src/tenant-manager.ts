@@ -2,6 +2,8 @@ import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import * as dbSchema from './db/schema';
 import { eq, inArray } from 'drizzle-orm';
+import { spawn } from 'child_process';
+import path from 'path';
 
 export class TenantDatabaseManager {
   private globalClient: ReturnType<typeof drizzle> | null = null;
@@ -48,12 +50,16 @@ export class TenantDatabaseManager {
 
     // 1. Lookup tenant metadata
     const tenantRecords = await globalClient
-      .select({ tenantDbUrl: dbSchema.tenants.tenantDbUrl })
+      .select({
+        tenantDbUrl: dbSchema.tenants.tenantDbUrl,
+        tenantDbToken: dbSchema.tenants.tenantDbToken,
+      })
       .from(dbSchema.tenants)
       .where(eq(dbSchema.tenants.id, tenantId))
       .limit(1);
 
     const tenantDbUrl = tenantRecords[0]?.tenantDbUrl;
+    const tenantDbToken = tenantRecords[0]?.tenantDbToken;
 
     // 2. Context switch: Isolated Tenant DB vs Row-Level Global DB
     if (tenantDbUrl) {
@@ -65,7 +71,7 @@ export class TenantDatabaseManager {
 
       const client = createClient({
         url: tenantDbUrl,
-        authToken: this.globalDbToken, // Assuming same org wide token for child DBs, or fetch specific token
+        authToken: tenantDbToken || this.globalDbToken, // Use tenant-specific token if available, fallback to global
       });
       const dedicatedClient = drizzle(client, { schema: dbSchema });
       this.dedicatedClients.set(tenantId, dedicatedClient);
@@ -114,12 +120,50 @@ export class TenantDatabaseManager {
     await globalClient.delete(dbSchema.tenants).where(eq(dbSchema.tenants.id, tenantId));
   }
 
+  async unprovisionTenant(tenantId: string): Promise<void> {
+    return new Promise((resolve) => {
+      console.log(`[Database] Triggering asynchronous undeployment for tenant: ${tenantId}`);
+      const scriptPath = path.join(__dirname, '../../undeploy.sh');
+
+      const child = spawn('bash', [scriptPath, tenantId], {
+        env: {
+          ...process.env,
+        },
+      });
+
+      child.stdout.on('data', (data: any) => {
+        console.log(`[undeploy.sh:${tenantId}] ${data.toString().trim()}`);
+      });
+
+      child.stderr.on('data', (data: any) => {
+        console.error(`[undeploy.sh:${tenantId}-err] ${data.toString().trim()}`);
+      });
+
+      child.on('close', (code: number) => {
+        if (code === 0) {
+          console.log(`[Database] Undeployment successful for tenant: ${tenantId}`);
+        } else {
+          console.error(`[Database] Undeployment failed for tenant: ${tenantId} with code: ${code}`);
+        }
+        resolve();
+      });
+
+      child.on('error', (err: any) => {
+        console.error(`[Database] Failed to start undeployment process for tenant ${tenantId}:`, err);
+        resolve();
+      });
+    });
+  }
+
   async executeRightToBeForgotten(tenantId: string): Promise<void> {
     console.log(`[Compliance] Initiating cascading delete for tenant: ${tenantId}`);
     
     // Cascading deletion across Data Stores
     await Promise.all([
       this.deleteTursoDatabase(tenantId),
+      this.unprovisionTenant(tenantId).catch(err => {
+        console.error(`[Compliance] Failed to unprovision tenant ${tenantId}:`, err);
+      }),
     ]);
   }
 }

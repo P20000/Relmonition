@@ -36,6 +36,7 @@ export const tenants = sqliteTable('tenants', {
   name: text('name'),
   connectionCode: text('connection_code').notNull().unique(),
   tenantDbUrl: text('tenant_db_url'), // For specific DB-level isolation
+  tenantDbToken: text('tenant_db_token'), // Tenant-specific DB authentication token
   partnerDeparted: integer('partner_departed', { mode: 'boolean' }).default(false),
   status: text('status').default('active'), // 'active' | 'provisioning' | 'failed'
   provisioningError: text('provisioning_error'),

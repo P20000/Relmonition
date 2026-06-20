@@ -3,8 +3,19 @@ import crypto from 'crypto';
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 
+if (!process.env.ENCRYPTION_KEY && (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging')) {
+  throw new Error('FATAL: ENCRYPTION_KEY environment variable is not defined.');
+}
+
 const getMasterKey = (): Buffer => {
-  const secret = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || 'fallback-dev-secret-key-12345';
+  const secret = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') {
+      throw new Error('FATAL: Encryption master key source (ENCRYPTION_KEY/JWT_SECRET) is missing.');
+    }
+    // Fallback only allowed in local development
+    return crypto.createHash('sha256').update('fallback-dev-secret-key-12345').digest();
+  }
   // Derive a 32-byte (256-bit) key using SHA-256
   return crypto.createHash('sha256').update(secret).digest();
 };
@@ -28,14 +39,19 @@ export const encrypt = (text: string): string => {
 
 /**
  * Decrypts cipher text using AES-256-GCM.
- * If the input doesn't match the encrypted format, returns it as-is for legacy fallback.
+ * If the input doesn't match the encrypted format, returns it as-is for legacy fallback in development.
+ * Throws an error in production/staging if plaintext credentials are found.
+ * Throws an error in all environments if decryption fails.
  */
 export const decrypt = (cipherText: string): string => {
   if (!cipherText) return '';
   
   const parts = cipherText.split(':');
   if (parts.length !== 3) {
-    // Return as-is for legacy fallback compatibility
+    if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') {
+      throw new Error('Decryption failed: Plaintext credentials are not allowed in production/staging.');
+    }
+    // Return as-is for legacy fallback compatibility in development
     return cipherText;
   }
   
@@ -53,7 +69,7 @@ export const decrypt = (cipherText: string): string => {
     
     return decrypted;
   } catch (error) {
-    console.error('[Crypto] Decryption failed, returning plain text if legacy fallback:', error);
-    return cipherText;
+    console.error('[Crypto] Decryption failed:', error);
+    throw new Error('Decryption failed: Secure payload was corrupted or encryption key is incorrect.');
   }
 };
