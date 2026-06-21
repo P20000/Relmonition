@@ -39,7 +39,7 @@ async function run() {
         entryId: entry.id,
         tenantId: entry.tenantId,
         content: entry.content,
-        vector: JSON.stringify(vector),
+        vector: vector,
         createdAt: new Date()
       });
       

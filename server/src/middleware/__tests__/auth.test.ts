@@ -59,7 +59,7 @@ describe('Authentication Middleware', () => {
   });
 
   it('should validate valid JWT token in cookies', async () => {
-    const JWT_SECRET = 'dev_jwt_secret_fallback_key_12345';
+    const JWT_SECRET = process.env.JWT_SECRET!;
     const token = jwt.sign({ userId: 'user-id-123', sessionId: 'session-id-123' }, JWT_SECRET);
     req.cookies = { access_token: token };
 
@@ -73,7 +73,7 @@ describe('Authentication Middleware', () => {
   });
 
   it('should validate valid JWT token in Authorization header', async () => {
-    const JWT_SECRET = 'dev_jwt_secret_fallback_key_12345';
+    const JWT_SECRET = process.env.JWT_SECRET!;
     const token = jwt.sign({ userId: 'user-id-123', sessionId: 'session-id-123' }, JWT_SECRET);
     req.headers = { authorization: `Bearer ${token}` };
 
@@ -87,7 +87,7 @@ describe('Authentication Middleware', () => {
   });
 
   it('should return 401 when database session is missing/expired', async () => {
-    const JWT_SECRET = 'dev_jwt_secret_fallback_key_12345';
+    const JWT_SECRET = process.env.JWT_SECRET!;
     const token = jwt.sign({ userId: 'user-id-123', sessionId: 'session-id-123' }, JWT_SECRET);
     req.cookies = { access_token: token };
 

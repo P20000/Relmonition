@@ -248,7 +248,7 @@ export async function embedAndStoreJournalEntry(
     entryId,
     tenantId,
     content,
-    vector: JSON.stringify(vector),
+    vector,
     createdAt: new Date(),
   });
 
@@ -330,7 +330,7 @@ export async function processChatUpload(
           chatUploadId: uploadId,
           tenantId,
           content: item.content,
-          vector: JSON.stringify(item.vector),
+          vector: item.vector,
           createdAt: new Date(),
         }))
       );

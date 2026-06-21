@@ -24,7 +24,10 @@ export async function embedText(text: string): Promise<number[]> {
   const client = getGeminiClient();
   const model = client.getGenerativeModel({ model: 'gemini-embedding-2-preview' });
 
-  const result = await callWithRetry(() => model.embedContent(text));
+  const result = await callWithRetry(() => model.embedContent({
+    content: { role: 'user', parts: [{ text }] },
+    outputDimensionality: 768
+  } as any));
   return result.embedding.values;
 }
 
@@ -36,31 +39,11 @@ export async function batchEmbedTexts(texts: string[]): Promise<number[][]> {
   const client = getGeminiClient();
   const model = client.getGenerativeModel({ model: 'gemini-embedding-2-preview' });
 
-  const requests = texts.map(t => ({ content: { role: 'user', parts: [{ text: t }] } }));
+  const requests = texts.map(t => ({
+    content: { role: 'user', parts: [{ text: t }] },
+    outputDimensionality: 768
+  } as any));
   const result = await callWithRetry(() => model.batchEmbedContents({ requests }));
   
   return result.embeddings.map(e => e.values);
-}
-
-/**
- * Cosine similarity between two equal-length float vectors.
- * Returns a value in [-1, 1]; higher == more similar.
- */
-export function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) {
-    throw new Error(`Vector length mismatch: ${a.length} vs ${b.length}`);
-  }
-
-  let dot = 0;
-  let magA = 0;
-  let magB = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    dot  += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-
-  const denom = Math.sqrt(magA) * Math.sqrt(magB);
-  return denom === 0 ? 0 : dot / denom;
 }

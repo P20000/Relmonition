@@ -1,4 +1,30 @@
-import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, uniqueIndex, customType } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+
+export const float32Blob = customType<{ data: number[] }>({
+  dataType() {
+    return 'F32_BLOB(768)';
+  },
+  toDriver(val: number[]) {
+    return sql`vector32(${Buffer.from(new Float32Array(val).buffer)})`;
+  },
+  fromDriver(val: any): number[] {
+    if (val instanceof ArrayBuffer) {
+      return Array.from(new Float32Array(val));
+    }
+    if (Buffer.isBuffer(val)) {
+      return Array.from(new Float32Array(val.buffer, val.byteOffset, val.length / 4));
+    }
+    if (typeof val === 'string') {
+      try {
+        return JSON.parse(val);
+      } catch {
+        // ignore
+      }
+    }
+    return Array.from(val);
+  }
+});
 
 // ----------------------------------------------------
 // CORE IDENTITY LAYER
@@ -116,7 +142,7 @@ export const embeddings = sqliteTable('embeddings', {
   chatUploadId: text('chat_upload_id').references(() => chatUploads.id, { onDelete: 'cascade' }),
   tenantId: text('tenant_id').notNull(),      // for tenant-scoped retrieval
   content: text('content').notNull(),         // original text for context window
-  vector: text('vector').notNull(),           // JSON-serialised float[] from Gemini
+  vector: float32Blob('vector').notNull(),    // LibSQL F32_BLOB vector storage
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(), // for exploration mode ordering
 });
 export const chatUploads = sqliteTable('chat_uploads', {

@@ -197,7 +197,7 @@ const runSecurityTests = (): Promise<void> => {
     printHeader('5. Security Test Suite Execution');
     console.log('Executing Vitest security test suites...');
     
-    exec('npx vitest run src', (err: any, stdout: string, stderr: string) => {
+    exec('node -r dotenv/config node_modules/vitest/vitest.mjs run src', (err: any, stdout: string, stderr: string) => {
       console.log(stdout);
       if (err) {
         console.error(stderr);

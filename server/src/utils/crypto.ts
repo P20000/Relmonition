@@ -3,18 +3,10 @@ import crypto from 'crypto';
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 
-if (!process.env.ENCRYPTION_KEY && (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging')) {
-  throw new Error('FATAL: ENCRYPTION_KEY environment variable is not defined.');
-}
-
 const getMasterKey = (): Buffer => {
   const secret = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') {
-      throw new Error('FATAL: Encryption master key source (ENCRYPTION_KEY/JWT_SECRET) is missing.');
-    }
-    // Fallback only allowed in local development
-    return crypto.createHash('sha256').update('fallback-dev-secret-key-12345').digest();
+    throw new Error('FATAL: Encryption master key source (ENCRYPTION_KEY or JWT_SECRET) is not defined. Set it in your .env file.');
   }
   // Derive a 32-byte (256-bit) key using SHA-256
   return crypto.createHash('sha256').update(secret).digest();

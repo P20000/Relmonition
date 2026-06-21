@@ -12,10 +12,10 @@ import { DeletionOrchestrator } from '../services/deletion-orchestrator';
 const tenantManager = new TenantDatabaseManager();
 const deletionOrchestrator = new DeletionOrchestrator();
 
-if (!process.env.JWT_SECRET && (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging')) {
-  throw new Error('FATAL: JWT_SECRET environment variable is not defined.');
+if (!process.env.JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET is not defined. Set it in your .env file.');
 }
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_fallback_key_12345';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export const signup = async (req: Request, res: Response) => {
   try {
