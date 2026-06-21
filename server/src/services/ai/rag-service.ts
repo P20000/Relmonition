@@ -2,9 +2,21 @@ import { embedText, batchEmbedTexts } from './embeddings-service';
 import { RelationshipRAGEngine, RetrievedContext } from './retrieval-engine';
 import { TenantDatabaseManager } from '../../tenant-manager';
 import { getLLMProvider } from './providers/factory';
+import { clearProviderCache } from './providers/factory';
 import { eq, or, and, lt, gt } from 'drizzle-orm';
 import crypto from 'crypto';
 import { Counter, Histogram } from 'prom-client';
+
+/**
+ * Check if an error is an authentication/configuration error that should
+ * trigger cache eviction for the tenant's BYOK provider.
+ */
+function isAuthError(error: any): boolean {
+  const status = error?.status || error?.statusCode;
+  if (status === 401 || status === 403 || status === 404) return true;
+  const msg = String(error?.message || '').toLowerCase();
+  return msg.includes('401') || msg.includes('403') || msg.includes('unauthorized') || msg.includes('forbidden') || msg.includes('invalid api key');
+}
 
 // ─── Prometheus Metrics ───────────────────────────────────────────────────────
 
@@ -134,8 +146,19 @@ RESPONSE:`;
   // Step 4: Generate with Adaptable LLM
   console.log(`[RAG] Generating response for tenant ${tenantId} via ${mode} mode (Hybrid)`);
   const generationStart = Date.now();
-  const provider = await getLLMProvider(tenantId);
-  const answer = await provider.generateText(prompt, systemInstruction);
+  let answer: string;
+  try {
+    const provider = await getLLMProvider(tenantId);
+    answer = await provider.generateText(prompt, systemInstruction);
+  } catch (genError: any) {
+    // Evict poisoned BYOK config from cache on auth errors
+    if (isAuthError(genError)) {
+      clearProviderCache(tenantId);
+      console.error(`[RAG] Evicted cached provider for tenant ${tenantId} due to auth error`);
+      throw new Error('Your custom AI key returned an authentication error. Please check your BYOK configuration in Settings.');
+    }
+    throw genError;
+  }
   const generationDuration = Date.now() - generationStart;
   console.log(`[RAG Telemetry] Generation completed: ${generationDuration}ms`);
 
@@ -224,8 +247,18 @@ ${safeQuery}
 
 RESPONSE:`;
 
-  const provider = await getLLMProvider(tenantId);
-  yield* provider.generateStream(prompt, systemInstruction, signal);
+  try {
+    const provider = await getLLMProvider(tenantId);
+    yield* provider.generateStream(prompt, systemInstruction, signal);
+  } catch (genError: any) {
+    // Evict poisoned BYOK config from cache on auth errors
+    if (isAuthError(genError)) {
+      clearProviderCache(tenantId);
+      console.error(`[RAG] Evicted cached provider for tenant ${tenantId} due to auth error (stream)`);
+      throw new Error('Your custom AI key returned an authentication error. Please check your BYOK configuration in Settings.');
+    }
+    throw genError;
+  }
 }
 
 /**
@@ -241,7 +274,7 @@ export async function embedAndStoreJournalEntry(
   console.log(`[RAG] Embedding journal entry ${entryId} for tenant ${tenantId}`);
   const { client } = await tenantManager.getDatabaseClient(tenantId);
 
-  const vector = await embedText(content);
+  const vector = await embedText(content, tenantId);
 
   await client.insert((await import('../../db/schema')).embeddings).values({
     id: crypto.randomUUID(),
@@ -299,7 +332,7 @@ export async function processChatUpload(
     for (let i = 0; i < batches.length; i += CONCURRENCY) {
       const activeBatches = batches.slice(i, i + CONCURRENCY);
       const results = await Promise.all(
-        activeBatches.map(batchTexts => batchEmbedTexts(batchTexts))
+        activeBatches.map(batchTexts => batchEmbedTexts(batchTexts, tenantId))
       );
 
       results.forEach((vectors, batchIdx) => {

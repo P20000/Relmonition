@@ -5,6 +5,7 @@ import { TenantDatabaseManager } from "../../../tenant-manager";
 import * as schema from "../../../db/schema";
 import { eq, and } from "drizzle-orm";
 import { decrypt } from "../../../utils/crypto";
+import { clearEmbeddingsCache } from "../embeddings-service";
 
 const tenantManager = new TenantDatabaseManager();
 
@@ -67,4 +68,5 @@ export async function getLLMProvider(tenantId?: string): Promise<AIProvider> {
  */
 export function clearProviderCache(tenantId: string) {
   delete _providerCache[tenantId];
+  clearEmbeddingsCache(tenantId);
 }

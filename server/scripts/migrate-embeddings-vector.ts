@@ -48,7 +48,7 @@ async function run() {
   for (const entry of entries) {
     try {
       console.log(`Embedding journal entry ${entry.id.substring(0, 8)}...`);
-      const vector = await embedText(entry.content);
+      const vector = await embedText(entry.content, entry.tenantId);
       
       await db.insert(schema.embeddings).values({
         id: crypto.randomUUID(),
@@ -91,7 +91,7 @@ async function run() {
       const BATCH_SIZE = 100;
       for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
         const chunkBatch = chunks.slice(i, i + BATCH_SIZE);
-        const vectors = await batchEmbedTexts(chunkBatch);
+        const vectors = await batchEmbedTexts(chunkBatch, upload.tenantId);
 
         const valuesToInsert = chunkBatch.map((text, idx) => ({
           id: crypto.randomUUID(),

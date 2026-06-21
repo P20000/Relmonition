@@ -35,7 +35,7 @@ export class RelationshipRAGEngine {
     console.log(`[RAG] Embedding query for tenant ${tenantId} in ${mode} mode`);
 
     // 1. Embed the incoming query
-    const queryVector = await embedText(query);
+    const queryVector = await embedText(query, tenantId);
     const queryVectorStr = JSON.stringify(queryVector);
     const limitVal = mode === 'retrieval' ? 5 : 15;
 

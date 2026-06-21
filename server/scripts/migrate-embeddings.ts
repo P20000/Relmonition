@@ -32,7 +32,7 @@ async function run() {
   for (const entry of entries) {
     try {
       console.log(`Embedding entry ${entry.id.substring(0, 8)}...`);
-      const vector = await embedText(entry.content);
+      const vector = await embedText(entry.content, entry.tenantId);
       
       await db.insert(schema.embeddings).values({
         id: crypto.randomUUID(),

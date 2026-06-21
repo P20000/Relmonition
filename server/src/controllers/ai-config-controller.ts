@@ -6,8 +6,41 @@ import crypto from 'crypto';
 import { clearProviderCache } from '../services/ai/providers/factory';
 import { AuthorizedRequest } from '../middleware/authorize';
 import { encrypt, decrypt } from '../utils/crypto';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 const tenantManager = new TenantDatabaseManager();
+
+// ─── Runtime Probe ───────────────────────────────────────────────────────────
+
+/**
+ * Validate an API key by making a lightweight probe request to the provider.
+ * - Gemini: embed a trivial 1-token string
+ * - OpenAI-compatible: list models (zero-cost endpoint)
+ *
+ * Throws with a descriptive message if the key/endpoint is invalid.
+ */
+async function probeApiKey(provider: string, apiKey: string, baseUrl?: string): Promise<void> {
+  if (provider === 'gemini') {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-embedding-2-preview' });
+    await model.embedContent({
+      content: { role: 'user', parts: [{ text: 'test' }] },
+      outputDimensionality: 768,
+    } as any);
+  } else {
+    // OpenAI-compatible path (OpenAI, Groq, Together, DeepSeek, etc.)
+    const openai = new OpenAI({
+      apiKey,
+      baseURL: baseUrl || 'https://api.openai.com/v1',
+      timeout: 15000,
+    });
+    // models.list() is lightweight and universally supported by OpenAI-compat APIs
+    await openai.models.list();
+  }
+}
+
+// ─── Controllers ─────────────────────────────────────────────────────────────
 
 /**
  * GET /api/v1/tenant/:tenantId/ai-configs
@@ -42,7 +75,7 @@ export async function getAIConfigs(req: Request, res: Response) {
 
 /**
  * POST /api/v1/tenant/:tenantId/ai-configs
- * Adds a new AI configuration.
+ * Adds a new AI configuration after runtime-probing the API key.
  */
 export async function createAIConfig(req: Request, res: Response) {
   const tenantId = (req as AuthorizedRequest).tenantId!;
@@ -52,17 +85,39 @@ export async function createAIConfig(req: Request, res: Response) {
     return res.status(400).json({ error: 'Label, provider, apiKey, and modelName are required.' });
   }
 
+  // Sanitize inputs
+  const trimmedLabel = String(label).trim();
+  const trimmedProvider = String(provider).trim().toLowerCase();
+  const trimmedModelName = String(modelName).trim();
+  const trimmedBaseUrl = baseUrl ? String(baseUrl).trim() : undefined;
+
+  if (!trimmedLabel || !trimmedModelName) {
+    return res.status(400).json({ error: 'Label and modelName must be non-empty strings.' });
+  }
+
+  // ── Runtime Probe: verify the key actually works before saving ──
+  try {
+    await probeApiKey(trimmedProvider, apiKey, trimmedBaseUrl);
+  } catch (probeError: any) {
+    console.warn(`[AIConfig] API key probe failed for tenant ${tenantId}:`, probeError.message);
+    return res.status(400).json({
+      error: 'API key validation failed',
+      details: probeError.message || 'The provided API key or endpoint could not be reached.',
+    });
+  }
+
+  // ── Probe passed — persist the config ──
   try {
     const { client: db } = await tenantManager.getDatabaseClient(tenantId);
     
     const newConfig = {
       id: crypto.randomUUID(),
       tenantId,
-      label,
-      provider,
+      label: trimmedLabel,
+      provider: trimmedProvider,
       apiKey: encrypt(apiKey), // Encrypt at rest using AES-256-GCM
-      baseUrl,
-      modelName,
+      baseUrl: trimmedBaseUrl,
+      modelName: trimmedModelName,
       isActive: false,
       createdAt: new Date(),
     };
