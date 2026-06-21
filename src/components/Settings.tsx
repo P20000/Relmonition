@@ -29,6 +29,7 @@ export function Settings({ userEmail, userId, accountType, activeTenantId, onTen
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deleteStage, setDeleteStage] = useState(0);
+    const [activeTenantRole, setActiveTenantRole] = useState<string | null>(null);
 
     const deletionStages = [
         "Initializing deletion sequence...",
@@ -222,9 +223,10 @@ export function Settings({ userEmail, userId, accountType, activeTenantId, onTen
                         userId={userId}
                         activeTenantId={activeTenantId}
                         onTenantChange={onTenantChange}
+                        onActiveRoleChange={setActiveTenantRole}
                     />
 
-                    {activeTenantId && (
+                    {activeTenantId && activeTenantRole === 'owner' && (
                         <AIKeyManager tenantId={activeTenantId} />
                     )}
 

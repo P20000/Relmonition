@@ -16,9 +16,10 @@ interface RelationshipManagerProps {
   userId: string;
   activeTenantId: string | null;
   onTenantChange: (tenantId: string | null) => void;
+  onActiveRoleChange?: (role: string | null) => void;
 }
 
-export function RelationshipManager({ userId, activeTenantId, onTenantChange }: RelationshipManagerProps) {
+export function RelationshipManager({ userId, activeTenantId, onTenantChange, onActiveRoleChange }: RelationshipManagerProps) {
   const [tenants, setTenants] = useState<TenantWithMembers[]>([]);
   const [showCreateTenant, setShowCreateTenant] = useState(false);
   const [showJoinTenant, setShowJoinTenant] = useState(false);
@@ -170,6 +171,12 @@ export function RelationshipManager({ userId, activeTenantId, onTenantChange }: 
   };
 
   const activeTenant = tenants.find((t) => t.id === activeTenantId);
+
+  useEffect(() => {
+    if (onActiveRoleChange) {
+      onActiveRoleChange(activeTenant?.role || null);
+    }
+  }, [activeTenant?.role, onActiveRoleChange]);
 
   const glassStyle = {
     background: 'var(--glass-bg)',
