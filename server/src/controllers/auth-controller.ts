@@ -273,3 +273,66 @@ export const deleteAccount = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to delete account', details: error.message });
   }
 };
+
+export const getPreferences = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const userId = authReq.user.userId;
+    const { client } = tenantManager.getGlobalClient();
+
+    let result = await client
+      .select()
+      .from(schema.userPreferences)
+      .where(eq(schema.userPreferences.userId, userId))
+      .limit(1);
+
+    if (result.length === 0) {
+      await client.insert(schema.userPreferences).values({
+        userId,
+        darkMode: true,
+        notifications: true,
+        dataSharing: false,
+        updatedAt: new Date(),
+      });
+      result = await client
+        .select()
+        .from(schema.userPreferences)
+        .where(eq(schema.userPreferences.userId, userId))
+        .limit(1);
+    }
+
+    res.json(result[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve preferences', details: error.message });
+  }
+};
+
+export const updatePreferences = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const userId = authReq.user.userId;
+    const { darkMode, notifications, dataSharing } = req.body;
+    const { client } = tenantManager.getGlobalClient();
+
+    await client
+      .update(schema.userPreferences)
+      .set({
+        ...(darkMode !== undefined && { darkMode }),
+        ...(notifications !== undefined && { notifications }),
+        ...(dataSharing !== undefined && { dataSharing }),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.userPreferences.userId, userId));
+
+    res.json({ success: true, message: 'Preferences updated successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update preferences', details: error.message });
+  }
+};
+

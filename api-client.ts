@@ -199,5 +199,14 @@ export const apiClient = {
       credentials: 'include'
     });
     return handleResponse(response);
+  },
+
+  async getPreferences() {
+    return this.get('/auth/preferences');
+  },
+
+  async updatePreferences(payload: { darkMode?: boolean, notifications?: boolean, dataSharing?: boolean }) {
+    return this.put('/auth/preferences', payload);
   }
 };
+

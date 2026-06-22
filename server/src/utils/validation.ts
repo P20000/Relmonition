@@ -10,6 +10,13 @@ export const updateProfileSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
 });
 
+export const updatePreferencesSchema = z.object({
+  darkMode: z.boolean().optional(),
+  notifications: z.boolean().optional(),
+  dataSharing: z.boolean().optional(),
+});
+
+
 // Tenant validation
 export const createTenantSchema = z.object({
   tenantName: z.string().min(1, 'Tenant name is required').max(100),

@@ -5,9 +5,8 @@ import { AIKeyManager } from './AIKeyManager';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../../api-client';
 
-// Stubs for currently unimplemented lib imports to avoid build errors
-const isTursoConfigured = true;
-const turso: any = null;
+// Preferences are loaded and updated securely via apiClient
+
 
 type SettingsProps = {
     userEmail: string;
@@ -53,25 +52,19 @@ export function Settings({ userEmail, userId, accountType, activeTenantId, onTen
 
     // Load user preferences
     useEffect(() => {
-        if (isTursoConfigured && turso) {
-            loadPreferences();
-        }
+        loadPreferences();
     }, [userId]);
     const loadUploadHistory = async () => {}; // Stub for deletion safety if used elsewhere
 
     const loadPreferences = async () => {
-        if (!turso || !isTursoConfigured) return;
-
         try {
-            const result = await turso.execute({
-                sql: 'SELECT * FROM user_preferences WHERE user_id = ?',
-                args: [userId],
-            });
-
-            if (result.rows.length > 0) {
-                const prefs = result.rows[0];
+            const prefs = await apiClient.getPreferences();
+            if (prefs) {
                 setNotifications(Boolean(prefs.notifications));
-                setDarkMode(Boolean(prefs.dark_mode));
+                setDarkMode(Boolean(prefs.darkMode));
+                // Set the dark mode class on html globally
+                document.documentElement.classList.toggle('dark', Boolean(prefs.darkMode));
+                localStorage.setItem('theme', prefs.darkMode ? 'dark' : 'light');
             }
         } catch (error) {
             console.error('Error loading preferences:', error);
@@ -97,13 +90,9 @@ export function Settings({ userEmail, userId, accountType, activeTenantId, onTen
 
 
     const updatePreference = async (field: string, value: boolean) => {
-        if (!turso || !isTursoConfigured) return;
-
         try {
-            await turso.execute({
-                sql: `UPDATE user_preferences SET ${field} = ?, updated_at = datetime('now') WHERE user_id = ?`,
-                args: [value ? 1 : 0, userId],
-            });
+            const payloadKey = field === 'dark_mode' ? 'darkMode' : field;
+            await apiClient.updatePreferences({ [payloadKey]: value });
         } catch (error) {
             console.error('Error updating preference:', error);
         }
