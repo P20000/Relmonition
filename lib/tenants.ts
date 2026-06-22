@@ -1,16 +1,4 @@
-const API_URL_PROXY = {
-  toString() {
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      return process.env.NEXT_PUBLIC_API_URL;
-    }
-    if (typeof window !== 'undefined') {
-      const tenantId = localStorage.getItem('activeTenantId') || 'lobby';
-      return `https://api.relmonition.dpdns.org/${tenantId}/api/v1`;
-    }
-    return 'https://api.relmonition.dpdns.org/lobby/api/v1';
-  }
-};
-const API_URL = API_URL_PROXY as unknown as string;
+import { getBaseUrl } from '../api-client';
 
 export type TenantMember = {
   id: string; // userId
@@ -30,7 +18,7 @@ export type TenantWithMembers = {
 };
 
 export async function getUserTenants(userId: string): Promise<TenantWithMembers[]> {
-  const res = await fetch(`${API_URL}/tenant/user/${userId}`, {
+  const res = await fetch(`${getBaseUrl()}/tenant/user/${userId}`, {
     credentials: 'include'
   });
   if (!res.ok) return [];
@@ -44,7 +32,7 @@ export async function createTenant(
   tenantName: string,
   label: string
 ): Promise<{ tenant: { id: string }; connectionCode: string } | null> {
-  const res = await fetch(`${API_URL}/tenant/create`, {
+  const res = await fetch(`${getBaseUrl()}/tenant/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, tenantName, label }),
@@ -63,7 +51,7 @@ export async function joinTenant(
   connectionCode: string,
   label: string
 ): Promise<{ id: string } | null> {
-  const res = await fetch(`${API_URL}/tenant/join`, {
+  const res = await fetch(`${getBaseUrl()}/tenant/join`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, connectionCode, label }),
@@ -81,7 +69,7 @@ export async function regenerateConnectionCode(
   tenantId: string,
   userId: string
 ): Promise<string | null> {
-  const res = await fetch(`${API_URL}/tenant/${tenantId}/regenerate-code`, {
+  const res = await fetch(`${getBaseUrl(tenantId)}/tenant/${tenantId}/regenerate-code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId }),
@@ -96,7 +84,7 @@ export async function regenerateConnectionCode(
 }
 
 export async function leaveTenant(tenantId: string, userId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/tenant/${tenantId}/leave`, {
+  const res = await fetch(`${getBaseUrl(tenantId)}/tenant/${tenantId}/leave`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId }),
@@ -109,7 +97,7 @@ export async function leaveTenant(tenantId: string, userId: string): Promise<voi
 }
 
 export async function deleteTenant(tenantId: string, userId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/tenant/${tenantId}`, {
+  const res = await fetch(`${getBaseUrl(tenantId)}/tenant/${tenantId}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId }),
@@ -124,7 +112,7 @@ export async function deleteTenant(tenantId: string, userId: string): Promise<vo
 export async function getTenantStatus(
   tenantId: string
 ): Promise<{ status: string; error: string | null }> {
-  const res = await fetch(`${API_URL}/tenant/${tenantId}/status`, {
+  const res = await fetch(`${getBaseUrl(tenantId)}/tenant/${tenantId}/status`, {
     credentials: 'include'
   });
   if (!res.ok) {

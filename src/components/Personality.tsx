@@ -49,7 +49,7 @@ export function Personality() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get(`/profiles/${activeTenantId}`);
+      const res = await apiClient.get(`/profiles/${activeTenantId}`, activeTenantId);
       setProfiles(res.profiles || []);
       setCompatibility(res.compatibility || null);
     } catch (err) {
@@ -63,7 +63,7 @@ export function Personality() {
     if (!activeTenantId || generating) return;
     try {
       setGenerating(true);
-      await apiClient.post(`/profiles/${activeTenantId}/generate`, {});
+      await apiClient.post(`/profiles/${activeTenantId}/generate`, {}, activeTenantId);
       alert("AI Analysis started! The profiles will be updated in the background. Check back in a minute.");
     } catch (err) {
       console.error("Failed to trigger generation", err);
@@ -81,7 +81,7 @@ export function Personality() {
         type,
         action: 'add',
         item: item.trim()
-      });
+      }, activeTenantId);
       
       // Optimistic update
       setProfiles(prev => prev.map(p => {
@@ -108,7 +108,7 @@ export function Personality() {
         type,
         action: 'remove',
         item
-      });
+      }, activeTenantId);
       
       setProfiles(prev => prev.map(p => {
         if (p.userId === userId) {

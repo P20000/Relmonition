@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { apiClient } from '../../../api-client';
+import { apiClient, getBaseUrl } from '../../../api-client';
 import { useAuth } from '../../context/AuthContext';
 
 export type CoachMode = 'retrieval' | 'exploration';
@@ -255,7 +255,7 @@ export function useAICoach() {
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${activeTenantId || 'lobby'}/api/v1`}/coach/chat/stream`, {
+      const response = await fetch(`${getBaseUrl(activeTenantId || undefined)}/coach/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -320,7 +320,7 @@ export function useAICoach() {
     setIsSending(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${activeTenantId || 'lobby'}/api/v1`}/coach/chat/regenerate`, {
+      const response = await fetch(`${getBaseUrl(activeTenantId || undefined)}/coach/chat/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -372,7 +372,7 @@ export function useAICoach() {
     setIsEditing(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${activeTenantId || 'lobby'}/api/v1`}/coach/chat/edit`, {
+      const response = await fetch(`${getBaseUrl(activeTenantId || undefined)}/coach/chat/edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -470,7 +470,7 @@ export function useAICoach() {
         fileContent = await pendingFile.text();
       }
 
-      await apiClient.post('/coach/upload', {
+      await apiClient.uploadChatHistory({
         tenantId: activeTenantId,
         userId,
         fileName: pendingFile.name,

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { getBaseUrl } from '../../../api-client';
 
 export interface DashboardData {
   partnerDeparted?: boolean;
@@ -21,7 +22,7 @@ export interface DashboardData {
 }
 
 export function useDashboardData() {
-  const { userId } = useAuth();
+  const { userId, activeTenantId } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,14 +30,15 @@ export function useDashboardData() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const tenantId = localStorage.getItem('activeTenantId');
-        if (!tenantId) {
+        if (!activeTenantId) {
           setData({ lastMood: null, insights: [], recentInteractions: [], history: [] });
+          setLoading(false);
           return;
         }
         
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || `https://api.relmonition.dpdns.org/${tenantId}/api/v1`;
-        const url = new URL(`${API_URL}/dashboard/${tenantId}`);
+        setLoading(true);
+        const API_URL = getBaseUrl(activeTenantId);
+        const url = new URL(`${API_URL}/dashboard/${activeTenantId}`);
         if (userId) {
           url.searchParams.append('userId', userId);
         }
@@ -59,7 +61,7 @@ export function useDashboardData() {
     };
 
     fetchDashboardData();
-  }, [userId]);
+  }, [userId, activeTenantId]);
 
   const {
     partnerDeparted = false,

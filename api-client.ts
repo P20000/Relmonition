@@ -1,7 +1,7 @@
 /**
  * Frontend API Utility to communicate with the Backend
  */
-const getBaseUrl = (tenantId?: string) => {
+export const getBaseUrl = (tenantId?: string) => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
@@ -88,7 +88,7 @@ export const apiClient = {
     return this.post('/rag/query', { tenantId, query, mode }, tenantId);
   },
 
-  async uploadChatHistory(data: { tenantId: string, userId: string, fileName: string, fileContent: string, fileSize: number }) {
+  async uploadChatHistory(data: { tenantId: string, userId: string, fileName: string, fileContent: string, fileSize: number, strategy?: 'append' | 'replace' }) {
     return this.post('/coach/upload', data, data.tenantId);
   },
 
