@@ -1,8 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import './utils/dns-patch';
-
 import express from 'express';
 import cors from 'cors';
 
